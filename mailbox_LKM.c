@@ -25,11 +25,45 @@
 #include <linux/mm.h>
 */
 
+typedef struct mailbox_linked_list {
+	pid_t pid;
+	char* message;
+	mailbox_linked_list* next;
+} mailbox;
+
+typedef struct mailbox_hastable {
+	int size;
+	mailbox** box;
+} hashtable;
+
 unsigned long **sys_call_table;
 
 asmlinkage long (*ref_sys_cs3013_syscall1)(void);
 
 kmem_cache_t* mailCache;
+
+hashtable all = hashtable_initialize(1024);
+
+hashtable *hashtable_initialize(int size) {
+	hashtable *table = NULL;
+	
+	if (size < 1) {
+		return NULL;
+	}
+	
+	if (table = malloc(sizeof(hastable)) == NULL) {
+		return NULL;
+	}
+	
+	if (table->box = malloc(sizeof(mailbox*) * size) == NULL) {
+		return NULL;
+	}
+	
+	table->size = size;
+	
+	return table;
+}
+
 
 asmlinkage long sys_SendMsg(pid_t dest, void *msg, int len, bool block){
 	if (/*dest invalid*/ || /*process && mailbox deleted*/) //kernel tasks, system processes
