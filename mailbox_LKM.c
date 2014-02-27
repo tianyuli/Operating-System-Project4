@@ -14,6 +14,7 @@
 
 #include "mailbox.h"
 #include <linux/slab.h>
+#include <stdbool.h>
 /*
 #include <linux/sched.h> //header defining task_struct
 #include <linux/list.h> //macros for linked list
@@ -24,10 +25,18 @@
 #include <asm-generic/errno.h>
 #include <linux/mm.h>
 */
+#define HASHTABLE_SIZE	1024
+
+typedef struct message_struct {
+	void* msg;
+	pid_t sender;
+	message_struct* next;
+} message;
 
 typedef struct mailbox_linked_list {
 	pid_t pid;
-	char* message;
+	message* msg;
+	bool full;
 	mailbox_linked_list* next;
 } mailbox;
 
@@ -42,32 +51,51 @@ asmlinkage long (*ref_sys_cs3013_syscall1)(void);
 
 kmem_cache_t* mailCache;
 
-hashtable all = hashtable_initialize(1024);
+hashtable* all;
 
-hashtable *hashtable_initialize(int size) {
-	hashtable *table = NULL;
-	
-	if (size < 1) {
-		return NULL;
+void hashtable_initialize() {
+	int size = HASHTABLE_SIZE;
+	if (size < 1 || table = malloc(sizeof(hastable)) == NULL || table->box = malloc(sizeof(mailbox*) * size) == NULL) {
+		all = NULL;
 	}
-	
-	if (table = malloc(sizeof(hastable)) == NULL) {
-		return NULL;
+	else {
+		all->size = size;
 	}
-	
-	if (table->box = malloc(sizeof(mailbox*) * size) == NULL) {
-		return NULL;
-	}
-	
-	table->size = size;
-	
-	return table;
 }
 
+void create_message(pid_t dest, void *msg) {
+
+}
+
+mailbox* get_mailbox(int pid) {
+	while (all->box != NULL) {
+		if (all->box->pid == pid) {
+			return all->box;
+		}
+		all->box = all->box->next;
+	}
+	return NULL;
+}
+
+mailbox* create_mailbox(int pid) {
+	mailbox* new = malloc(sizeof(mailbox*);
+	
+	new->pid = pid;
+	new->msg = NULL;
+	new->full = FALSE;
+}
+	
 
 asmlinkage long sys_SendMsg(pid_t dest, void *msg, int len, bool block){
-	if (/*dest invalid*/ || /*process && mailbox deleted*/) //kernel tasks, system processes
+	int existence = kill(dest, 0);
+	mailbox* dest_mailbox = get_mailbox(int dest);
+	
+	if (existence != 0 || /*process && mailbox deleted*/) //kernel tasks, system processes
 		return MAILBOX_INVALID;
+		
+	if (dest_mailbox == NULL) {
+		dest_mailbox = create_mailbox(int dest);
+	}
 	if (block == FALSE && /*dest mailbox full*/)
 		return MAILBOX_FULL;
 	if (/*mailbox stopped*/)

@@ -15,15 +15,6 @@
 #define BLOCK   1
 #define MAX_MSG_SIZE 128
 
-typedef struct mailbox_linked_list {
-	char* message;
-	mailbox_linked_list* next;
-} mailbox;
-
-typedef struct mailbox_hastable {
-	pid_t pid;
-	mailbox** box;
-} hashtable;
 
 /**
  * Functions for msgs
