@@ -169,19 +169,12 @@ asmlinkage long sys_SendMsg(pid_t a_dest, void *a_msg, int a_len, bool a_block){
 /**
  * receive message from given sender
  */
-asmlinkage long sys_RcvMsg(pid_t *a_sender, void *a_msg, int *a_len, bool a_block){
+asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 
 	pid_t* sender;
 	void* msg;
 	int* len;
 	bool block;
-
-	//check if arguments are valid
-	if (copy_from_user(dest, a_sender, sizeof(pid_t))
-	||	copy_from_user(msg, a_msg, len)
-	||	copy_from_user(len, a_len, sizeof(int))
-	||	copy_from_user(&block, &a_block, sizeof(bool)))
-		 return MSG_ARG_ERROR;
 		 
 	mailbox* mb = get_mailbox(&a_sender);
 	
@@ -194,7 +187,14 @@ asmlinkage long sys_RcvMsg(pid_t *a_sender, void *a_msg, int *a_len, bool a_bloc
 	if (/*any pointer argument to any message or mailbox call is invalid*/) //copy_to_user and copy_from_user fail
 		return MSG_ARG_ERROR;
 		
-		
+	pid_t *a_sender = &mb->pid;
+	void *a_msg = &mb->msg->msg;
+	int *a_len = &mb->msg->len;
+	
+	if ((copy_to_user(sender, a_sender, sizeof(pid_t)))
+	|| (copy_to_user(msg, a_msg, a_len)) 
+	|| (copy_to_user(len, a_len, sizeof(int))))
+		 return MSG_ARG_ERROR;
 	//anyother error return MAILBOX_ERROR
 		
 		
