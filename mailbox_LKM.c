@@ -103,6 +103,9 @@ mailbox* create_mailbox(pid_t pid) {
 	return mb;
 }
 
+/**
+ * add the given message to given mailbox
+ */
 void add_message(mailbox* mb, message* message) {
 	message* mb = mb->msg;
 	while (mb->msg->next != NULL) {
@@ -156,7 +159,7 @@ asmlinkage long sys_SendMsg(pid_t a_dest, void *a_msg, int a_len, bool a_block){
 		return MAILBOX_STOPPED;
 	if ((len > MAX_MSG_SIZE) || (len < 0))
 		return MSG_LENGTH_ERROR;
-	//anyother error return MAILBOX_ERROR
+	//any other error return MAILBOX_ERROR
 		
 	
 	message* thisMail = create_message(my_pid, len, msg);
