@@ -41,6 +41,7 @@ typedef struct message_struct {
 typedef struct mailbox_linked_list {
 	pid_t pid;
 	message* msg;
+	int size;
 	bool full;
 	mailbox_linked_list* next;
 } mailbox;
@@ -95,12 +96,30 @@ mailbox* create_mailbox(pid_t pid) {
 	unsigned hashval;
 
 	mb = (mailbox*) kmem_cache_alloc(mbCache, GFP_KERNEL)
+	mb -> pid = pid;
 	hashval = hash(pid);
 	mb->next = all[hashval];
 	all[hashval] = mb;
 	return mb;
 }
 
+void add_message(mailbox* mb, message* message) {
+	message* mb = mb->msg;
+	while (mb->msg->next != NULL) {
+		mb->msg = mb->msg->next;
+	}
+	
+	mb->msg->next = message;
+	mb->msg = temp;
+	
+	mb->size++;
+	if (mb->size == MAX_MSG_SIZE) {
+		mb->full = TRUE;
+	}
+}
+		
+		
+	
 
 /**
  * send message to given destination
@@ -137,15 +156,12 @@ asmlinkage long sys_SendMsg(pid_t a_dest, void *a_msg, int a_len, bool a_block){
 		return MAILBOX_STOPPED;
 	if ((len > MAX_MSG_SIZE) || (len < 0))
 		return MSG_LENGTH_ERROR;
-	if (/*any pointer argument to any message or mailbox call is invalid*/) //copy_to_user and copy_from_user fail
-		return MSG_ARG_ERROR;
 	//anyother error return MAILBOX_ERROR
 		
 	
-	message thisMail = create_message(my_pid, len, msg);
+	message* thisMail = create_message(my_pid, len, msg);
+	add_message(dest_mailbox, thisMail);	
 	
-	
-		
 	//successfully sent
 	return 0;
 }
@@ -166,10 +182,12 @@ asmlinkage long sys_RcvMsg(pid_t *a_sender, void *a_msg, int *a_len, bool a_bloc
 	||	copy_from_user(len, a_len, sizeof(int))
 	||	copy_from_user(&block, &a_block, sizeof(bool)))
 		 return MSG_ARG_ERROR;
-
-	if (block == FALSE && /*mailbox empty*/)
+		 
+	mailbox* mb = get_mailbox(&a_sender);
+	
+	if (block == FALSE && mb->empty == TRUE)
 		return MAILBOX_EMPTY;
-	if (/*mailbox stopped*/ && /*mailbox empty*/)
+	if (/*mailbox stopped*/ && mb->empty == TRUE)
 		return MAILBOX_STOPPED;
 	if ((len > MAX_MSG_SIZE) || (len < 0))
 		return MSG_LENGTH_ERROR;
