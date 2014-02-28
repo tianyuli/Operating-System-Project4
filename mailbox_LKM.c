@@ -237,7 +237,7 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	void *a_msg = mb->msg->content;
 	int *a_len = &(mb->msg->len);
 
-	if ((a_len > MAX_MSG_SIZE) || (a_len < 0))
+	if ((*a_len > MAX_MSG_SIZE) || (*a_len < 0))
 		return MSG_LENGTH_ERROR;
 
 	
@@ -368,6 +368,8 @@ static void __exit interceptor_end(void) {
 	kmem_cache_destroy(mailCache);
 	kmem_cache_destroy(mbCache);
 	kmem_cache_destroy(msgCache);
+	kfree(all);
+	kmem_cache_free(mailCache, temp);
 
 	/* Revert all system calls to what they were before we began. */
 	disable_page_protection();
