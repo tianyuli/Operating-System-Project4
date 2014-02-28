@@ -88,6 +88,7 @@ message* create_message(pid_t sender, int len, void *msg) {
  * look for mailbox with given pid in hashtable
  */
 mailbox* get_mailbox(pid_t pid) {
+	printk("pid in get= %d", pid);
 	mailbox* mb;
 	for (mb = all[hash(pid)]; mb != NULL; mb = mb->next){
 		if (pid == mb->pid) return mb; //found
@@ -169,7 +170,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	//bool block;
 	message* this_mail;
 	int ret;
-
+	printk(KERN_INFO "Reach4");
 	//check if arguments are valid
 	/*if (ret = copy_from_user(&dest, &a_dest, sizeof(pid_t)))
 		return a_dest;*/
@@ -182,6 +183,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 
 	//check if destination is valid
 	//int existence = kill(dest, 0);
+	printk(KERN_INFO "Reach3");
 	mailbox* dest_mailbox = get_mailbox(dest);
 	
 	if (/*existence != 0 ||*/ dest <= 0 /*|| process && mailbox deleted*/) //kernel tasks, system processes
@@ -199,9 +201,11 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 		return MSG_LENGTH_ERROR;
 	//any other error return MAILBOX_ERROR
 		
-	
+	printk(KERN_INFO "Reach1");
 	this_mail = create_message(my_pid, len, msg);
-	add_message(dest_mailbox, this_mail);	
+	printk(KERN_INFO "Reach2");
+	printk(KERN_INFO "pid in send = %d", dest);
+	add_message(dest_mailbox, this_mail);
 	
 	//successfully sent
 	return 0;
@@ -216,8 +220,10 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	//if (copy_from_user(&a_block, &block, sizeof(bool))) return MSG_ARG_ERROR;
 
 	pid_t my_pid = current->pid;
-		 
+	printk(KERN_INFO "\"'Hello world?!' More like 'Goodbye, world!' EXTERMINATE!\" -- Dalek");
+	printk(KERN_INFO "pid before get = %d", my_pid);
 	mailbox* mb = get_mailbox(my_pid);
+	
 	if (mb == NULL) return 12345;
 	
 	if ((block == NO_BLOCK) && (mb->size == 0))
