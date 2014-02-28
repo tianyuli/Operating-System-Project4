@@ -7,7 +7,9 @@
 
 #include "mailbox.h"
 #include <stdio.h>
-
+#define __NR_cs3013_syscall1  349
+#define __NR_cs3013_syscall1  350
+#define __NR_cs3013_syscall1  351
 int main() {
   int childPID = fork();
   
@@ -16,16 +18,19 @@ int main() {
     void *msg[128];
     int len;
     bool block = true;
-    RcvMsg(&sender,msg,&len,block);
+	int this;
+    this = syscall(350, &sender,msg,&len,block);
     printf("Message received.\n");
-    printf("Message: %s\n", (char *) msg);
+	int mypid = getpid();
+    printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, this);
   }
   else{
     char mesg[] = "I am your father";
     printf("Sending Message to child.\n");
 	int ret;
-    if (ret = SendMsg(childPID, mesg, 17, false)){
-      printf("Send failed: error = %d\n", ret);
+	int fatherpid = getpid();
+    if (ret = syscall(349, childPID, mesg, 17, false)){
+      printf("Send failed: error = %d, childPID = %d, fatherpid = %d\n", ret, childPID, fatherpid);
     }
   }
   return 0;

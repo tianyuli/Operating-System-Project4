@@ -91,7 +91,6 @@ mailbox* get_mailbox(pid_t pid) {
 	mailbox* mb;
 	for (mb = all[hash(pid)]; mb != NULL; mb = mb->next){
 		if (pid == mb->pid) return mb; //found
-		
 	}
 	return NULL; //not found
 }
@@ -160,22 +159,26 @@ void rm_message(mailbox* mb) {
 /**
  * send message to given destination
  */
-asmlinkage long sys_SendMsg(pid_t a_dest, void *a_msg, int a_len, bool a_block){
+asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	//get pid of sender
 	pid_t my_pid = current->pid;
 	
-	pid_t dest;
+	//pid_t dest;
 	void* msg = NULL;
-	int len;
-	bool block;
+	//int len;
+	//bool block;
 	message* this_mail;
+	int ret;
 
 	//check if arguments are valid
-	if (copy_from_user(&dest, &a_dest, sizeof(pid_t))
-	||	copy_from_user(msg, a_msg, len)
-	||	copy_from_user(&len, &a_len, sizeof(int))
-	||	copy_from_user(&block, &a_block, sizeof(bool)))
-		 return MSG_ARG_ERROR;
+	/*if (ret = copy_from_user(&dest, &a_dest, sizeof(pid_t)))
+		return a_dest;*/
+	if (copy_from_user(msg, a_msg, len))
+		return 3000;
+	/*if (copy_from_user(&len, &a_len, sizeof(int)))
+		return 4000;
+	if (copy_from_user(&block, &a_block, sizeof(bool)))
+		 return MSG_ARG_ERROR;*/
 
 	//check if destination is valid
 	//int existence = kill(dest, 0);
@@ -186,6 +189,7 @@ asmlinkage long sys_SendMsg(pid_t a_dest, void *a_msg, int a_len, bool a_block){
 		
 	if (dest_mailbox == NULL) {
 		dest_mailbox = create_mailbox(dest);
+		if (dest_mailbox == NULL) return 98765;
 	}
 	if (block == FALSE && (dest_mailbox->full == FALSE))
 		return MAILBOX_FULL;
@@ -208,20 +212,23 @@ asmlinkage long sys_SendMsg(pid_t a_dest, void *a_msg, int a_len, bool a_block){
  */
 asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 
-	bool a_block;
-	if (copy_from_user(&a_block, &block, sizeof(bool))) return MSG_ARG_ERROR;
+	//bool a_block;
+	//if (copy_from_user(&a_block, &block, sizeof(bool))) return MSG_ARG_ERROR;
 
 	pid_t my_pid = current->pid;
 		 
 	mailbox* mb = get_mailbox(my_pid);
+	if (mb == NULL) return 12345;
 	
-	if ((a_block == FALSE) && (mb->size == 0))
+	if ((block == NO_BLOCK) && (mb->size == 0))
 		return MAILBOX_EMPTY;
 	if (mb->stop && (mb->size == 0))
 		return MAILBOX_STOPPED;
 
+	while ((block == BLOCK) && (mb->size == 0));
+
 	pid_t *a_sender = &(mb->pid);
-	void *a_msg = &(mb->msg->content);
+	void *a_msg = mb->msg->content;
 	int *a_len = &(mb->msg->len);
 
 	if ((*a_len > MAX_MSG_SIZE) || (*a_len < 0))
