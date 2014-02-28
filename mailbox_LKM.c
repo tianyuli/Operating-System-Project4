@@ -221,7 +221,6 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	//if (copy_from_user(&a_block, &block, sizeof(bool))) return MSG_ARG_ERROR;
 
 	pid_t my_pid = current->pid;
-	printk(KERN_INFO "\"'Hello world?!' More like 'Goodbye, world!' EXTERMINATE!\" -- Dalek");
 	printk(KERN_INFO "pid before get = %d", my_pid);
 	mailbox* mb = get_mailbox(my_pid);
 	
@@ -238,7 +237,7 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	void *a_msg = mb->msg->content;
 	int *a_len = &(mb->msg->len);
 
-	if ((*a_len > MAX_MSG_SIZE) || (*a_len < 0))
+	if ((a_len > MAX_MSG_SIZE) || (a_len < 0))
 		return MSG_LENGTH_ERROR;
 
 	
