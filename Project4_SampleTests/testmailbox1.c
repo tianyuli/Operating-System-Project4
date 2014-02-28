@@ -19,7 +19,7 @@ int main() {
     int len;
     bool block = true;
 	int this;
-    this = syscall(350, &sender,msg,&len,block);
+    this = RcvMsg(&sender,msg,&len,block);
     printf("Message received.\n");
 	int mypid = getpid();
     printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, this);
@@ -29,7 +29,7 @@ int main() {
     printf("Sending Message to child.\n");
 	int ret;
 	int fatherpid = getpid();
-    if (ret = syscall(349, childPID, mesg, 17, false)){
+    if (ret = SendMsg(childPID, mesg, 17, false)){
       printf("Send failed: error = %d, childPID = %d, fatherpid = %d\n", ret, childPID, fatherpid);
     }
   }

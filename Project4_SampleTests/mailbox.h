@@ -21,15 +21,15 @@
  * Functions for msgs
  * 
  * */
-int SendMsg(pid_t dest, void *msg, int len, bool block);
+long SendMsg(pid_t dest, void *msg, int len, bool block);
 
-int RcvMsg(pid_t *sender, void *msg, int *len, bool block);
+long RcvMsg(pid_t *sender, void *msg, int *len, bool block);
 
 /**
  * functions for maintaining mailboxes
  * 
  * */
-int ManageMailbox(bool stop, int *count);
+long ManageMailbox(bool stop, int *count);
 
 #define MAILBOX_FULL	1001
 #define MAILBOX_EMPTY	1002
