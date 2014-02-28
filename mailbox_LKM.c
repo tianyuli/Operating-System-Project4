@@ -43,6 +43,7 @@ typedef struct mailbox_linked_list {
 	message* msg;
 	int size;
 	bool full;
+	bool stop;
 	mailbox_linked_list* next;
 } mailbox;
 
@@ -96,7 +97,11 @@ mailbox* create_mailbox(pid_t pid) {
 	unsigned hashval;
 
 	mb = (mailbox*) kmem_cache_alloc(mbCache, GFP_KERNEL)
-	mb -> pid = pid;
+	mb->stop = FALSE;
+	mb->full = FALSE;
+	mb->size = 0;
+	mb->pid = pid;
+	
 	hashval = hash(pid);
 	mb->next = all[hashval];
 	all[hashval] = mb;
@@ -104,7 +109,7 @@ mailbox* create_mailbox(pid_t pid) {
 }
 
 void add_message(mailbox* mb, message* message) {
-	message* mb = mb->msg;
+	message* temp = mb->msg;
 	while (mb->msg->next != NULL) {
 		mb->msg = mb->msg->next;
 	}
@@ -112,11 +117,27 @@ void add_message(mailbox* mb, message* message) {
 	mb->msg->next = message;
 	mb->msg = temp;
 	
-	mb->size++;
+	(mb->size)++;
 	if (mb->size == MAX_MSG_SIZE) {
 		mb->full = TRUE;
 	}
 }
+
+void rm_message(mailbox* mb) {
+	message* temp = mb->msg;
+	while (mb->msg->next != NULL) {
+		mb->msg = mb->msg->next;
+	}
+	mb->msg = NULL;
+	
+	mb->msg = temp;
+	(mb->size)--;
+	if (mb->full) {
+		mb->full = FALSE;
+	}
+}
+	
+	
 		
 		
 	
@@ -152,7 +173,7 @@ asmlinkage long sys_SendMsg(pid_t a_dest, void *a_msg, int a_len, bool a_block){
 	}
 	if (block == FALSE && dest_mailbox->full == false)
 		return MAILBOX_FULL;
-	if (/*mailbox stopped*/)
+	if (mb->stop)
 		return MAILBOX_STOPPED;
 	if ((len > MAX_MSG_SIZE) || (len < 0))
 		return MSG_LENGTH_ERROR;
@@ -180,12 +201,10 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	
 	if (block == FALSE && mb->empty == TRUE)
 		return MAILBOX_EMPTY;
-	if (/*mailbox stopped*/ && mb->empty == TRUE)
+	if (mb->stop && mb->empty == TRUE)
 		return MAILBOX_STOPPED;
 	if ((len > MAX_MSG_SIZE) || (len < 0))
 		return MSG_LENGTH_ERROR;
-	if (/*any pointer argument to any message or mailbox call is invalid*/) //copy_to_user and copy_from_user fail
-		return MSG_ARG_ERROR;
 		
 	pid_t *a_sender = &mb->pid;
 	void *a_msg = &mb->msg->msg;
@@ -196,7 +215,8 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	|| (copy_to_user(len, a_len, sizeof(int))))
 		 return MSG_ARG_ERROR;
 	//anyother error return MAILBOX_ERROR
-		
+	
+	rm_message(mb);
 		
 	//successful
 	return 0;
@@ -207,7 +227,20 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
  * 
  * */
 asmlinkage long sys_ManageMailbox(bool stop, int *count){
-	if (stop); //any attempt to send a future message to this mailbox results in an error to the sending task
+	pid_t my_pid = getpid();
+	
+	bool a_stop;
+	if (copy_from_user(&stop, &a_stop, sizeof(bool))
+		return MSG_ARG_ERROR;
+		
+	mailbox* mb = get_mailbox(my_pid);
+	if (stop) {
+		mb->stop = TRUE;
+	}
+	int a_count = mb->size;
+	
+	if (copy_to_user(count, &a_count, sizeof(int)))
+		return MSG_ARG_ERROR;
 	
 }
 
