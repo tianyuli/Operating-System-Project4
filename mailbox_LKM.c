@@ -60,7 +60,7 @@ struct kmem_cache* mailCache;
 struct kmem_cache* mbCache;
 struct kmem_cache* msgCache;
 
-static mailbox* all[HASHTABLE_SIZE]; //pointer to table
+static mailbox** all; //pointer to table
 
 message* temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
 
@@ -91,9 +91,16 @@ message* create_message(pid_t sender, int len, void *msg) {
 mailbox* get_mailbox(pid_t pid) {
 	printk("pid in get= %d", pid);
 	mailbox* mb;
+	int count = 0;
 	for (mb = all[hash(pid)]; mb != NULL; mb = mb->next){
-		if (pid == mb->pid) return mb; //found
+		if (pid == mb->pid){
+		    return mb; //found
+			printk("found mailbox for pid %d, mailbox # = %d", pid, mb->pid);
+		}
+		count++;
+		printk("count=%d", count);
 	}
+	printk("did not find mailbox :(");
 	return NULL; //not found
 }
 
@@ -140,12 +147,9 @@ void add_message(mailbox* mb, message* message) {
  */
 void rm_message(mailbox* mb) {
 	temp = mb->msg;
-	while (temp->next != NULL) {
-		temp = temp->next;
-	}
-	temp = NULL;
+	mb->msg = mb->msg->next;
+	kmem_cache_free(mailCache, temp);
 	
-	//mb->msg = temp;
 	(mb->size)--;
 	if (mb->full) {
 		mb->full = FALSE;
@@ -351,6 +355,7 @@ static int __init interceptor_start(void) {
 	mailCache = kmem_cache_create("mail", sizeof(message), 0, 0, NULL);
 	mbCache = kmem_cache_create("mb", sizeof(mailbox), 0, 0, NULL);
 	msgCache = kmem_cache_create("msg", MAX_MSG_SIZE, 0, 0, NULL);
+	all = kmalloc(MAX_MSG_SIZE * sizeof(mailbox*), GFP_KERNEL);
 	
 	/* And indicate the load was successful */
 	printk(KERN_INFO "Loaded interceptor!");

@@ -7,9 +7,7 @@
 
 #include "mailbox.h"
 #include <stdio.h>
-#define __NR_cs3013_syscall1  349
-#define __NR_cs3013_syscall1  350
-#define __NR_cs3013_syscall1  351
+
 int main() {
   int childPID = fork();
   
