@@ -23,8 +23,9 @@ int main() {
   else{
     char mesg[] = "I am your father";
     printf("Sending Message to child.\n");
-    if (SendMsg(childPID, mesg, 17, false)){
-      printf("Send failed\n");
+	int ret;
+    if (ret = SendMsg(childPID, mesg, 17, false)){
+      printf("Send failed: error = %d\n", ret);
     }
   }
   return 0;
