@@ -58,6 +58,7 @@ asmlinkage long (*ref_sys_cs3013_syscall3)(void);
 
 struct kmem_cache* mailCache;
 struct kmem_cache* mbCache;
+struct kmem_cache* msgCache;
 
 static mailbox* all[HASHTABLE_SIZE]; //pointer to table
 
@@ -165,7 +166,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	pid_t my_pid = current->pid;
 	
 	//pid_t dest;
-	void* msg = NULL;
+	void* msg = kmem_cache_alloc(msgCache, GFP_KERNEL);
 	//int len;
 	//bool block;
 	message* this_mail;
@@ -193,7 +194,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 		dest_mailbox = create_mailbox(dest);
 		if (dest_mailbox == NULL) return 98765;
 	}
-	if (block == FALSE && (dest_mailbox->full == FALSE))
+	if (block == FALSE && (dest_mailbox->full == TRUE))
 		return MAILBOX_FULL;
 	if (dest_mailbox->stop)
 		return MAILBOX_STOPPED;
@@ -337,6 +338,8 @@ static int __init interceptor_start(void) {
 
 	/* Store a copy of all the existing functions */
 	ref_sys_cs3013_syscall1 = (void *)sys_call_table[__NR_cs3013_syscall1];
+	ref_sys_cs3013_syscall2 = (void *)sys_call_table[__NR_cs3013_syscall2];
+	ref_sys_cs3013_syscall3 = (void *)sys_call_table[__NR_cs3013_syscall3];
 
 	/* Replace the existing system calls */
 	disable_page_protection();
@@ -348,6 +351,7 @@ static int __init interceptor_start(void) {
 	//mailCache and mbCache are global variables
 	mailCache = kmem_cache_create("mail", sizeof(message), 0, 0, NULL);
 	mbCache = kmem_cache_create("mb", sizeof(mailbox), 0, 0, NULL);
+	msgCache = kmem_cache_create("msg", MAX_MSG_SIZE, 0, 0, NULL);
 	
 	/* And indicate the load was successful */
 	printk(KERN_INFO "Loaded interceptor!");
@@ -364,6 +368,7 @@ static void __exit interceptor_end(void) {
 	//done with mailnoxes
 	kmem_cache_destroy(mailCache);
 	kmem_cache_destroy(mbCache);
+	kmem_cache_destroy(msgCache);
 
 	/* Revert all system calls to what they were before we began. */
 	disable_page_protection();
