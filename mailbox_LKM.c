@@ -55,14 +55,16 @@ unsigned long **sys_call_table;
 asmlinkage long (*ref_sys_cs3013_syscall1)(void);
 asmlinkage long (*ref_sys_cs3013_syscall2)(void);
 asmlinkage long (*ref_sys_cs3013_syscall3)(void);
+asmlinkage long (*ref_sys_exit)(int error_code);
+asmlinkage long (*ref_sys_exit_group)(int error_code);
 
 struct kmem_cache* mailCache;
 struct kmem_cache* mbCache;
 struct kmem_cache* msgCache;
 
-static mailbox** all; //pointer to table
+mailbox* all[HASHTABLE_SIZE]; //pointer to table
 
-message* temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
+message** temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
 
 /**
  * hash: form hash value for given pid
@@ -72,12 +74,63 @@ unsigned hash (pid_t pid){
 	return hashval % HASHTABLE_SIZE;
 }
 
+/*initialize hashtable*/
+void init_ht(void){
+	int i;
+	for (i = 0; i < HASHTABLE_SIZE; i++){
+		all[i] = NULL;
+	}
+}
+
+/*free given mail*/
+void free_mail(message* mail){
+	if (mail == NULL) return;
+	free_mail(mail->next);
+	if (mail->content != NULL){
+		kmem_cache_free(msgCache, mail->content);
+	}
+	kmem_cache_free(mailCache, mail);
+}
+
+/*free given mailbox*/
+void free_mb(mailbox* mb){
+	if (mb == NULL)	return;
+	free_mb(mb->next);
+	free_mail(mb->msg);
+	kmem_cache_free(mbCache, mb);
+}
+
+/* free hashtable */
+void free_ht(void){
+	int i;
+	for (i = 0; i < HASHTABLE_SIZE; i++){
+		free_mb(all[i]);
+	}
+}
+
+
+
+
+/*allocate memory space for a new mail*/
+message* new_mail(void){
+	return (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
+}
+
+/*allocate memory space for a new mailbox*/
+mailbox* new_mb(void){
+	return (mailbox*) kmem_cache_alloc(mbCache, GFP_KERNEL);
+}
+
+void* new_msg(void){
+	return kmem_cache_alloc(msgCache, GFP_KERNEL);
+}
+
 /**
  * create a message with given information
  */
 message* create_message(pid_t sender, int len, void *msg) {
 	//allocate memory for mail
-	message* thisMail = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
+	message* thisMail = new_mail();
 	thisMail->content = msg;
 	thisMail->len = len;
 	thisMail->sender = sender;
@@ -89,18 +142,19 @@ message* create_message(pid_t sender, int len, void *msg) {
  * look for mailbox with given pid in hashtable
  */
 mailbox* get_mailbox(pid_t pid) {
-	printk("pid in get= %d", pid);
 	mailbox* mb;
 	int count = 0;
+	printk("pid in get= %d, hashpid = %u", pid, hash(pid));
+	//printk("all[hashpid] = %p, all[hashpid]->pid = %d", all[hash(pid)], all[hash(pid)]->pid);
 	for (mb = all[hash(pid)]; mb != NULL; mb = mb->next){
 		if (pid == mb->pid){
-		    return mb; //found
 			printk("found mailbox for pid %d, mailbox # = %d", pid, mb->pid);
+		    return mb; //found
 		}
 		count++;
 		printk("count=%d", count);
 	}
-	printk("did not find mailbox :(");
+	//printk("did not find mailbox :(");
 	return NULL; //not found
 }
 
@@ -108,36 +162,48 @@ mailbox* get_mailbox(pid_t pid) {
  * create new mailbox in hashtable for given pid
  */
 mailbox* create_mailbox(pid_t pid) {
-	mailbox* mb = (mailbox*) kmem_cache_alloc(mbCache, GFP_KERNEL);
+	mailbox* mb = new_mb();
 	unsigned hashval;
 
 	mb->stop = FALSE;
 	mb->full = FALSE;
 	mb->size = 0;
 	mb->pid = pid;
+	mb->msg = NULL;
 	
 	hashval = hash(pid);
 	mb->next = all[hashval];
 	all[hashval] = mb;
+	printk("created mailbox at hashval = %d, address = %p, address next = %p", hashval, mb, mb->next);
 	return mb;
 }
 
 /**
  * add the given message to given mailbox
  */
-void add_message(mailbox* mb, message* message) {
-	temp = mb->msg;
-	while (temp->next != NULL) {
-		temp = temp->next;
+void add_message(mailbox** mb, message** message) {
+	if ((*message) == NULL){
+		printk("adding message, msg == NULL");		
+		return;
 	}
-	
-	temp->next = message;
+	temp = &((*mb)->msg);
+	if ((*temp) == NULL) {
+		(*temp) = (*message);
+		(*temp)->next = NULL;
+	}
+	else {
+		while ((*temp)->next != NULL) {
+			(*temp) = (*temp)->next;
+		}
+		(*temp)->next = (*message);
+	}
 	//mb->msg = temp;
 	
-	(mb->size)++;
-	if (mb->size == MAX_MSG_SIZE) {
-		mb->full = TRUE;
+	((*mb)->size)++;
+	if ((*mb)->size == MAX_MSG_SIZE) {
+		(*mb)->full = TRUE;
 	}
+	printk("added message to mailbox at address %p, message address %p, temp = %p", *mb, (*message), temp);
 	//kmem_cache_free(mailCache, temp);
 	
 }
@@ -145,22 +211,30 @@ void add_message(mailbox* mb, message* message) {
 /**
  * remove oldest message from the given mailbox
  */
-void rm_message(mailbox* mb) {
-	temp = mb->msg;
-	mb->msg = mb->msg->next;
-	kmem_cache_free(mailCache, temp);
-	
-	(mb->size)--;
-	if (mb->full) {
-		mb->full = FALSE;
+void rm_message(mailbox** mb) {
+	(*temp) = (*mb)->msg;
+	printk("*temp is %p", temp);
+	if ((*temp) == NULL)
+		return;
+	printk("rm msg: *temp not NULL");
+	(*mb)->msg = (*mb)->msg->next;
+	printk("about to free *temp");
+	if ((*temp) != NULL)
+		kmem_cache_free(mailCache, (*temp));
+	printk("freed *temp");
+	((*mb)->size)--;
+	if ((*mb)->full) {
+		(*mb)->full = FALSE;
 	}
+	printk("rm over");
 	//kmem_cache_free(mailCache, temp);
 }
-	
-	
+
+message* get_msg(mailbox** mb){
+	printk("got message, msg address = %p", (*mb)->msg);
+	return (*mb)->msg;
+}
 		
-		
-	
 
 /**
  * send message to given destination
@@ -170,11 +244,12 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	pid_t my_pid = current->pid;
 	
 	//pid_t dest;
-	void* msg = kmem_cache_alloc(msgCache, GFP_KERNEL);
+	void* msg = new_msg();
 	//int len;
 	//bool block;
 	message* this_mail;
-	int ret;
+	mailbox* dest_mailbox;
+	//int ret;
 	printk(KERN_INFO "Reach4");
 	//check if arguments are valid
 	/*if (ret = copy_from_user(&dest, &a_dest, sizeof(pid_t)))
@@ -189,7 +264,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	//check if destination is valid
 	//int existence = kill(dest, 0);
 	printk(KERN_INFO "Reach3");
-	mailbox* dest_mailbox = get_mailbox(dest);
+	dest_mailbox = get_mailbox(dest);
 	
 	if (/*existence != 0 ||*/ dest <= 0 /*|| process && mailbox deleted*/) //kernel tasks, system processes
 		return MAILBOX_INVALID;
@@ -210,7 +285,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	this_mail = create_message(my_pid, len, msg);
 	printk(KERN_INFO "Reach2");
 	printk(KERN_INFO "pid in send = %d", dest);
-	add_message(dest_mailbox, this_mail);
+	add_message(&dest_mailbox, &this_mail);
 	
 	//successfully sent
 	return 0;
@@ -223,11 +298,19 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 
 	//bool a_block;
 	//if (copy_from_user(&a_block, &block, sizeof(bool))) return MSG_ARG_ERROR;
-
 	pid_t my_pid = current->pid;
+	mailbox* mb = NULL;
+	message* this_mail;
+	pid_t *a_sender;
+	void *a_msg;
+	int *a_len;
+	//while ((block == BLOCK) && (mb == NULL));
 	printk(KERN_INFO "pid before get = %d", my_pid);
-	mailbox* mb = get_mailbox(my_pid);
 	
+	//while (mb->size == 0);
+	while ((block == BLOCK) && (mb == NULL)){
+		mb = get_mailbox(my_pid);
+	}
 	if (mb == NULL) return 12345;
 	
 	if ((block == NO_BLOCK) && (mb->size == 0))
@@ -236,23 +319,28 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 		return MAILBOX_STOPPED;
 
 	while ((block == BLOCK) && (mb->size == 0));
+	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
+	this_mail = get_msg(&mb);
 
-	pid_t *a_sender = &(mb->pid);
-	void *a_msg = mb->msg->content;
-	int *a_len = &(mb->msg->len);
+	a_sender = &(this_mail->sender);
+	a_msg = this_mail->content;
+	a_len = &(this_mail->len);
+	printk("a_sender = %d, a_msg = %p, a_len = %d", *a_sender, a_msg, *a_len);
 
-	if ((*a_len > MAX_MSG_SIZE) || (*a_len < 0))
+	if (((*a_len) > MAX_MSG_SIZE) || ((*a_len) < 0))
 		return MSG_LENGTH_ERROR;
 
-	
-	if ((copy_to_user(sender, a_sender, sizeof(pid_t)))
-	|| (copy_to_user(msg, a_msg, (long unsigned)a_len)) 
-	|| (copy_to_user(len, a_len, sizeof(int))))
+	printk("got here yooooooooooooooooo");
+	if ((copy_to_user(sender, a_sender, sizeof(pid_t))))
+		return 2000;
+	if ((copy_to_user(msg, a_msg, MAX_MSG_SIZE)))
+		return 3000;
+	if ((copy_to_user(len, a_len, sizeof(int))))
 		 return MSG_ARG_ERROR;
 	//any other error return MAILBOX_ERROR
-	
-	rm_message(mb);
-		
+	printk("copy succeeded");
+	rm_message(&mb);
+	printk("read to return");
 	//successful
 	return 0;
 }
@@ -265,21 +353,37 @@ asmlinkage long sys_ManageMailbox(bool stop, int *count){
 	pid_t my_pid = current->pid;
 	
 	bool a_stop;
+	mailbox* mb;
+	int a_count;
 	if (copy_from_user(&stop, &a_stop, sizeof(bool)))
 		return MSG_ARG_ERROR;
 		
-	mailbox* mb = get_mailbox(my_pid);
+	mb = get_mailbox(my_pid);
 	if (a_stop) {
 		mb->stop = TRUE;
 	}
-	int a_count = mb->size;
+	a_count = mb->size;
 	
 	if (copy_to_user(count, &a_count, sizeof(int)))
 		return MSG_ARG_ERROR;
 
 	return 0;
-	
 }
+
+/*
+asmlinkage long sys_mb_exit(int error_code){
+	pid_t mypid;
+	//free my mailbox
+	(*ref_sys_exit)(error_code);
+}
+
+asmlinkage long sys_mb_exit_group(int error_code){
+	pid_t mypid;
+	//free my mailbox
+	(*ref_sys_exit_group)(int error_code);
+}
+
+*/
 
 static unsigned long **find_sys_call_table(void) {
 	unsigned long int offset = PAGE_OFFSET;
@@ -343,19 +447,28 @@ static int __init interceptor_start(void) {
 	ref_sys_cs3013_syscall1 = (void *)sys_call_table[__NR_cs3013_syscall1];
 	ref_sys_cs3013_syscall2 = (void *)sys_call_table[__NR_cs3013_syscall2];
 	ref_sys_cs3013_syscall3 = (void *)sys_call_table[__NR_cs3013_syscall3];
+	/*
+	ref_sys_exit = (void *)sys_call_table[__NR_exit];
+	ref_sys_exit_group = (void *)sys_call_table[__NR_exit_group];
+	*/
 
 	/* Replace the existing system calls */
 	disable_page_protection();
 	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)sys_SendMsg;
 	sys_call_table[__NR_cs3013_syscall2] = (unsigned long *)sys_RcvMsg;
 	sys_call_table[__NR_cs3013_syscall3] = (unsigned long *)sys_ManageMailbox;
+	/*
+	sys_call_table[__NR_exit] = (unsigned long *)sys_mb_exit;
+	sys_call_table[__NR_exit_group] = (unsigned long *)sys_mb_exit_group;
+	*/
 	enable_page_protection();
 
 	//mailCache and mbCache are global variables
 	mailCache = kmem_cache_create("mail", sizeof(message), 0, 0, NULL);
 	mbCache = kmem_cache_create("mb", sizeof(mailbox), 0, 0, NULL);
 	msgCache = kmem_cache_create("msg", MAX_MSG_SIZE, 0, 0, NULL);
-	all = kmalloc(MAX_MSG_SIZE * sizeof(mailbox*), GFP_KERNEL);
+	init_ht();
+	//all = kmalloc(HASHTABLE_SIZE * sizeof(mailbox*), GFP_KERNEL);
 	
 	/* And indicate the load was successful */
 	printk(KERN_INFO "Loaded interceptor!");
@@ -373,14 +486,20 @@ static void __exit interceptor_end(void) {
 	kmem_cache_destroy(mailCache);
 	kmem_cache_destroy(mbCache);
 	kmem_cache_destroy(msgCache);
-	kfree(all);
-	kmem_cache_free(mailCache, temp);
+	if ((*temp) != NULL){
+		kmem_cache_free(mailCache, (*temp));
+	}
+	free_ht();
 
 	/* Revert all system calls to what they were before we began. */
 	disable_page_protection();
 	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)ref_sys_cs3013_syscall1;
-	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)ref_sys_cs3013_syscall2;
-	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)ref_sys_cs3013_syscall3;
+	sys_call_table[__NR_cs3013_syscall2] = (unsigned long *)ref_sys_cs3013_syscall2;
+	sys_call_table[__NR_cs3013_syscall3] = (unsigned long *)ref_sys_cs3013_syscall3;
+	/*
+	sys_call_table[__NR_exit] = (unsigned long *)ref_sys_exit;
+	sys_call_table[__NR_exit_group] = (unsigned long *)ref_sys_exit_group;
+	*/
 	enable_page_protection();
 
 	printk(KERN_INFO "Unloaded interceptor!");
