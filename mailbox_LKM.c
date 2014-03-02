@@ -88,7 +88,9 @@ void free_mail(message* mail){
 	if (mail->content != NULL){
 		kmem_cache_free(msgCache, mail->content);
 	}
+	if (mail != NULL) {
 	kmem_cache_free(mailCache, mail);
+	}
 }
 
 /*free given mailbox*/
@@ -96,7 +98,9 @@ void free_mb(mailbox* mb){
 	if (mb == NULL)	return;
 	free_mb(mb->next);
 	free_mail(mb->msg);
+	if (mb != NULL) {
 	kmem_cache_free(mbCache, mb);
+	}
 }
 
 /* free hashtable */
@@ -310,7 +314,9 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	if (mb->stop && (mb->size == 0))
 		return MAILBOX_STOPPED;
 
-	while ((block == BLOCK) && (mb->size == 0));
+	while ((block == BLOCK) && (mb->size == 0)) {
+		printk("LLLLLLLLLLLOOOPPPP");
+	}	
 	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
 	this_mail = get_msg(&mb);
 
@@ -449,16 +455,16 @@ static int __init interceptor_start(void) {
 	ref_sys_cs3013_syscall1 = (void *)sys_call_table[__NR_cs3013_syscall1];
 	ref_sys_cs3013_syscall2 = (void *)sys_call_table[__NR_cs3013_syscall2];
 	ref_sys_cs3013_syscall3 = (void *)sys_call_table[__NR_cs3013_syscall3];
-	ref_sys_exit = (void *)sys_call_table[__NR_exit];
-	ref_sys_exit_group = (void *)sys_call_table[__NR_exit_group];
+	//ref_sys_exit = (void *)sys_call_table[__NR_exit];
+	//ref_sys_exit_group = (void *)sys_call_table[__NR_exit_group];
 
 	/* Replace the existing system calls */
 	disable_page_protection();
 	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)sys_SendMsg;
 	sys_call_table[__NR_cs3013_syscall2] = (unsigned long *)sys_RcvMsg;
 	sys_call_table[__NR_cs3013_syscall3] = (unsigned long *)sys_ManageMailbox;
-	sys_call_table[__NR_exit] = (unsigned long *)sys_mb_exit;
-	sys_call_table[__NR_exit_group] = (unsigned long *)sys_mb_exit_group;
+	//sys_call_table[__NR_exit] = (unsigned long *)sys_mb_exit;
+	//sys_call_table[__NR_exit_group] = (unsigned long *)sys_mb_exit_group;
 	enable_page_protection();
 
 	//mailCache and mbCache are global variables
@@ -495,8 +501,8 @@ static void __exit interceptor_end(void) {
 	sys_call_table[__NR_cs3013_syscall1] = (unsigned long *)ref_sys_cs3013_syscall1;
 	sys_call_table[__NR_cs3013_syscall2] = (unsigned long *)ref_sys_cs3013_syscall2;
 	sys_call_table[__NR_cs3013_syscall3] = (unsigned long *)ref_sys_cs3013_syscall3;
-	sys_call_table[__NR_exit] = (unsigned long *)ref_sys_exit;
-	sys_call_table[__NR_exit_group] = (unsigned long *)ref_sys_exit_group;
+	//sys_call_table[__NR_exit] = (unsigned long *)ref_sys_exit;
+	//sys_call_table[__NR_exit_group] = (unsigned long *)ref_sys_exit_group;
 	enable_page_protection();
 
 	printk(KERN_INFO "Unloaded interceptor!");
