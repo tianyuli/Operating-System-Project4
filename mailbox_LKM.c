@@ -65,7 +65,7 @@ struct kmem_cache* mbCache;
 struct kmem_cache* msgCache;
 
 mailbox* all[HASHTABLE_SIZE]; //pointer to table
-spinlock_t* lock;
+spinlock_t lock;
 message** temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
 
 /**
@@ -309,7 +309,11 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	this_mail = create_message(my_pid, len, msg);
 	printk(KERN_INFO "Reach2");
 	printk(KERN_INFO "pid in send = %d", dest);
+
+	spin_lock_init(&lock);
+	spin_lock(&lock);
 	add_message(&dest_mailbox, &this_mail);
+	spin_unlock(&lock);
 	
 	//spin_unlock(lock);
 	//successfully sent
@@ -348,7 +352,10 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 		printk("LLLLLLLLLLLOOOPPPP");
 	}	
 	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
+	spin_lock_init(&lock);
+	spin_lock(&lock);
 	this_mail = get_msg(&mb);
+	spin_unlock(&lock);
 
 	if (this_mail == NULL) return 1155665;
 
@@ -511,7 +518,7 @@ static int __init interceptor_start(void) {
 
 	//mailCache and mbCache are global variables
 	//spin_lock_init(lock);
-	static DEFINE_SPINLOCK(lock);
+	//static DEFINE_SPINLOCK(lock);
 	mailCache = kmem_cache_create("mail", sizeof(message), 0, 0, NULL);
 	mbCache = kmem_cache_create("mb", sizeof(mailbox), 0, 0, NULL);
 	msgCache = kmem_cache_create("msg", MAX_MSG_SIZE, 0, 0, NULL);
