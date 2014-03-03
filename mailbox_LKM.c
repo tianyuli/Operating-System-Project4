@@ -253,6 +253,7 @@ void rm_message(mailbox** mb) {
 message* get_msg(mailbox** mb){
 	printk("got message, msg address = %p", (*mb)->msg);
 	return (*mb)->msg;
+	rm_message(mb);
 }
 		
 
@@ -263,7 +264,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	//get pid of sender
 	pid_t my_pid = current->pid;
 	
-	spin_lock(lock);
+	//spin_lock(lock);
 	
 	void* msg = new_msg();
 	message* this_mail;
@@ -310,7 +311,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	printk(KERN_INFO "pid in send = %d", dest);
 	add_message(&dest_mailbox, &this_mail);
 	
-	spin_unlock(lock);
+	//spin_unlock(lock);
 	//successfully sent
 	return 0;
 }
@@ -368,7 +369,7 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 		 return MSG_ARG_ERROR;
 	//any other error return MAILBOX_ERROR
 	printk("copy succeeded");
-	rm_message(&mb);
+	//rm_message(&mb);
 	printk("read to return");
 
 	//spin_lock(lock);
