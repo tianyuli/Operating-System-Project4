@@ -48,6 +48,7 @@ typedef struct mailbox_linked_list {
 	pid_t pid;
 	message* msg;
 	int size;
+	spinlock_t lock;
 	bool full;
 	bool stop;
 	struct mailbox_linked_list* next;
@@ -65,7 +66,6 @@ struct kmem_cache* mbCache;
 struct kmem_cache* msgCache;
 
 mailbox* all[HASHTABLE_SIZE]; //pointer to table
-spinlock_t lock;
 message** temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
 
 /**
@@ -310,10 +310,10 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	printk(KERN_INFO "Reach2");
 	printk(KERN_INFO "pid in send = %d", dest);
 
-	spin_lock_init(&lock);
-	spin_lock(&lock);
+	spin_lock_init(&(dest_mailbox->lock));
+	spin_lock(&(dest_mailbox->lock));
 	add_message(&dest_mailbox, &this_mail);
-	spin_unlock(&lock);
+	spin_unlock(&(dest_mailbox->lock));
 	
 	//spin_unlock(lock);
 	//successfully sent
@@ -352,10 +352,10 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 		printk("LLLLLLLLLLLOOOPPPP");
 	}	
 	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
-	spin_lock_init(&lock);
-	spin_lock(&lock);
+	spin_lock_init(&(mb->lock));
+	spin_lock(&(mb->lock));
 	this_mail = get_msg(&mb);
-	spin_unlock(&lock);
+	spin_unlock(&(mb->lock));
 
 	if (this_mail == NULL) return 1155665;
 
