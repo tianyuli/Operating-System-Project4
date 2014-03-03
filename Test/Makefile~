@@ -1,6 +1,6 @@
 #author: Xi Wen(xwen), Tianyu Li(tli), Xia Li(xli2)
 
-all: test1 test2
+all: test1 test2 test3
 
 mailbox.o: mailbox.c mailbox.h
 	gcc -Wall -c mailbox.c
