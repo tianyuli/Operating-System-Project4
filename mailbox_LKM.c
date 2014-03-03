@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <linux/unistd.h>
 #include <linux/sched.h>
+#include <linux/spinlock.h>
 /*
 #include <linux/list.h> //macros for linked list
 #include <asm-generic/current.h> //header defining "current"
@@ -32,6 +33,7 @@
 #define FALSE 0
 #define TRUE   1
 #define MAX_MB_SIZE 32
+
 /* define data structure for each mail */
 typedef struct message_struct {
 	void* content;
@@ -42,6 +44,7 @@ typedef struct message_struct {
 
 /* define data structure for mailbox */
 typedef struct mailbox_linked_list {
+	//wait_queue_head_t wqh;
 	pid_t pid;
 	message* msg;
 	int size;
@@ -57,12 +60,12 @@ asmlinkage long (*ref_sys_cs3013_syscall2)(void);
 asmlinkage long (*ref_sys_cs3013_syscall3)(void);
 asmlinkage long (*ref_sys_exit)(int error_code);
 asmlinkage long (*ref_sys_exit_group)(int error_code);
-struct kmem_cache* mailCache = NULL;
-struct kmem_cache* mbCache = NULL;
-struct kmem_cache* msgCache = NULL;
+struct kmem_cache* mailCache;
+struct kmem_cache* mbCache;
+struct kmem_cache* msgCache;
 
 mailbox* all[HASHTABLE_SIZE]; //pointer to table
-
+spinlock_t *lock;
 message** temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
 
 /**
@@ -75,10 +78,12 @@ unsigned hash (pid_t pid){
 
 /*initialize hashtable*/
 void init_ht(void){
+	//spin_lock(lock);
 	int i;
 	for (i = 0; i < HASHTABLE_SIZE; i++){
 		all[i] = NULL;
 	}
+	//spin_unlock(lock);
 }
 
 /*free given mail*/
@@ -165,7 +170,8 @@ mailbox* get_mailbox(pid_t pid) {
 mailbox* create_mailbox(pid_t pid) {
 	mailbox* mb = new_mb();
 	unsigned hashval;
-
+	
+	//init_waitqueue_head(&(mb->wqh));
 	mb->stop = FALSE;
 	mb->full = FALSE;
 	mb->size = 0;
@@ -173,8 +179,10 @@ mailbox* create_mailbox(pid_t pid) {
 	mb->msg = NULL;
 	
 	hashval = hash(pid);
+	spin_lock(lock);
 	mb->next = all[hashval];
 	all[hashval] = mb;
+	spin_unlock(lock);
 	printk("created mailbox at hashval = %d, address = %p, address next = %p", hashval, mb, mb->next);
 	return mb;
 }
@@ -187,6 +195,9 @@ void add_message(mailbox** mb, message** message) {
 		printk("adding message, msg == NULL");		
 		return;
 	}
+	//acquire spin lock
+	//spin_lock(&(*mb)->wqh.lock);
+	spin_lock(lock);
 	temp = &((*mb)->msg);
 	if ((*temp) == NULL) {
 		(*temp) = (*message);
@@ -206,7 +217,9 @@ void add_message(mailbox** mb, message** message) {
 	}
 	printk("added message to mailbox at address %p, message address %p, temp = %p", *mb, (*message), temp);
 	//kmem_cache_free(mailCache, temp);
-	
+	//wake_up_locked(&(*mb)->wqh);
+	//spin_unlock(&(*mb)->wqh.lock);
+	spin_unlock(lock);
 }
 
 /**
@@ -217,6 +230,9 @@ void rm_message(mailbox** mb) {
 	printk("*temp is %p", temp);
 	if ((*temp) == NULL)
 		return;
+	//acquire spin lock
+	//spin_lock(&(*mb)->wqh.lock);
+	spin_lock(lock);
 	printk("rm msg: *temp not NULL");
 	(*mb)->msg = (*mb)->msg->next;
 	printk("about to free *temp");
@@ -229,6 +245,9 @@ void rm_message(mailbox** mb) {
 	}
 	printk("rm over");
 	//kmem_cache_free(mailCache, temp);
+	//wake_up_locked(&(*mb)->wqh);
+	//spin_unlock(&(*mb)->wqh.lock);
+	spin_unlock(lock);
 }
 
 message* get_msg(mailbox** mb){
@@ -484,6 +503,7 @@ static int __init interceptor_start(void) {
 	enable_page_protection();
 
 	//mailCache and mbCache are global variables
+	spin_lock_init(lock);
 	mailCache = kmem_cache_create("mail", sizeof(message), 0, 0, NULL);
 	mbCache = kmem_cache_create("mb", sizeof(mailbox), 0, 0, NULL);
 	msgCache = kmem_cache_create("msg", MAX_MSG_SIZE, 0, 0, NULL);
