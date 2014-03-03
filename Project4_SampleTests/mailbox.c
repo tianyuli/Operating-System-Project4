@@ -9,8 +9,8 @@
 #include "mailbox.h"
 
 #define __NR_cs3013_syscall1  349
-#define __NR_cs3013_syscall1  350
-#define __NR_cs3013_syscall1  351
+#define __NR_cs3013_syscall2  350
+#define __NR_cs3013_syscall3  351
 
 /**
  * Functions for msgs

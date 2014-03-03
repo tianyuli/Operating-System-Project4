@@ -13,6 +13,7 @@
 
 #include "mailbox.h"
 #include <stdio.h>
+#include <unistd.h>
 
 #define CHILD_NUM 50
 
@@ -32,18 +33,19 @@ int main() {
       ret = RcvMsg(&sender,msg,&len,block);
     
       
-      printf("Message: %s\n, ret = %d", (char *)msg, ret);
+      printf("[#%d]Message: %s, ret = %d\n",childCounter, (char *)msg, ret);
       char myMesg[] = "I am your child";
-      if(ret = SendMsg(sender, myMesg, 16, block)) {
-	printf("Child send failed. ret = %d\n", ret);
+		ret = SendMsg(sender, myMesg, 16, block);
+      if(ret) {
+				printf("[%d]Child send failed. ret = %d\n", childCounter, ret);
       }
-      
       return 0;
     }
     else{
       char mesg[] = "I am your father";
-      if (ret = SendMsg(childPID, mesg, 17, false)){
-	printf("Send failed, ret = %d\n", ret);
+			ret = SendMsg(childPID, mesg, 17, false);
+      if (ret){
+				printf("[#%d]Send failed, ret = %d\n", childCounter, ret);
       }
     }
   }

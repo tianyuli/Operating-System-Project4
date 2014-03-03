@@ -17,5 +17,11 @@ test2: test2.o mailbox.o
 test2.o: test2.c mailbox.h
 	gcc -Wall -g -c test2.c 
 
+test3: test3.o mailbox.o
+	gcc -Wall -g test3.o mailbox.o -o test3
+
+test3.o: test3.c mailbox.h
+	gcc -Wall -g -c test3.c 
+
 clean:
-	rm *.o
+	rm *.o test1 test2

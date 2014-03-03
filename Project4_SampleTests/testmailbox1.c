@@ -8,6 +8,7 @@
 #include "mailbox.h"
 #include <stdio.h>
 #include <sys/types.h>
+#include <string.h>
 
 int main() {
   int childPID = fork();
@@ -28,7 +29,8 @@ int main() {
     printf("Sending Message to child.\n");
 	int ret;
 	int fatherpid = getpid();
-    if (ret = SendMsg(childPID, mesg, 17, false)){
+	ret = SendMsg(childPID, mesg, 17, false);
+    if (ret){
       printf("Send failed: error = %d, childPID = %d, fatherpid = %d\n", ret, childPID, fatherpid);
     }
   }

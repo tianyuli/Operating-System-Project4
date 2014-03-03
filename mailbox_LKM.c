@@ -234,16 +234,17 @@ void rm_message(mailbox** mb) {
 	//spin_lock(&(*mb)->wqh.lock);
 	//spin_lock(lock);
 	printk("rm msg: *temp not NULL");
-	(*mb)->msg = (*mb)->msg->next;
+	if ((*mb)->msg->next == NULL) (*mb)->msg = NULL;
+	else (*mb)->msg = (*mb)->msg->next;
 	printk("about to free *temp");
 	if ((*temp) != NULL)
 		kmem_cache_free(mailCache, (*temp));
 	printk("freed *temp");
-	((*mb)->size)--;
+	((*mb)->size) --;
 	if ((*mb)->full) {
 		(*mb)->full = FALSE;
 	}
-	printk("rm over");
+	printk("rm over, mb size = %d", (*mb)->size);
 	//kmem_cache_free(mailCache, temp);
 	//wake_up_locked(&(*mb)->wqh);
 	//spin_unlock(&(*mb)->wqh.lock);
