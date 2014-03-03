@@ -65,7 +65,7 @@ struct kmem_cache* mbCache;
 struct kmem_cache* msgCache;
 
 mailbox* all[HASHTABLE_SIZE]; //pointer to table
-spinlock_t *lock;
+spinlock_t* lock;
 message** temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
 
 /**
@@ -179,10 +179,10 @@ mailbox* create_mailbox(pid_t pid) {
 	mb->msg = NULL;
 	
 	hashval = hash(pid);
-	spin_lock(lock);
+	//spin_lock(lock);
 	mb->next = all[hashval];
 	all[hashval] = mb;
-	spin_unlock(lock);
+	//spin_unlock(lock);
 	printk("created mailbox at hashval = %d, address = %p, address next = %p", hashval, mb, mb->next);
 	return mb;
 }
@@ -197,7 +197,7 @@ void add_message(mailbox** mb, message** message) {
 	}
 	//acquire spin lock
 	//spin_lock(&(*mb)->wqh.lock);
-	spin_lock(lock);
+	//spin_lock(lock);
 	temp = &((*mb)->msg);
 	if ((*temp) == NULL) {
 		(*temp) = (*message);
@@ -219,7 +219,7 @@ void add_message(mailbox** mb, message** message) {
 	//kmem_cache_free(mailCache, temp);
 	//wake_up_locked(&(*mb)->wqh);
 	//spin_unlock(&(*mb)->wqh.lock);
-	spin_unlock(lock);
+	//spin_unlock(lock);
 }
 
 /**
@@ -232,7 +232,7 @@ void rm_message(mailbox** mb) {
 		return;
 	//acquire spin lock
 	//spin_lock(&(*mb)->wqh.lock);
-	spin_lock(lock);
+	//spin_lock(lock);
 	printk("rm msg: *temp not NULL");
 	(*mb)->msg = (*mb)->msg->next;
 	printk("about to free *temp");
@@ -247,7 +247,7 @@ void rm_message(mailbox** mb) {
 	//kmem_cache_free(mailCache, temp);
 	//wake_up_locked(&(*mb)->wqh);
 	//spin_unlock(&(*mb)->wqh.lock);
-	spin_unlock(lock);
+	//spin_unlock(lock);
 }
 
 message* get_msg(mailbox** mb){
@@ -262,6 +262,8 @@ message* get_msg(mailbox** mb){
 asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	//get pid of sender
 	pid_t my_pid = current->pid;
+	
+	spin_lock(lock);
 	
 	void* msg = new_msg();
 	message* this_mail;
@@ -308,6 +310,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	printk(KERN_INFO "pid in send = %d", dest);
 	add_message(&dest_mailbox, &this_mail);
 	
+	spin_unlock(lock);
 	//successfully sent
 	return 0;
 }
@@ -317,6 +320,7 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
  */
 asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 
+	//spin_lock(lock);
 	//bool a_block;
 	//if (copy_from_user(&a_block, &block, sizeof(bool))) return MSG_ARG_ERROR;
 	pid_t my_pid = current->pid;
@@ -366,6 +370,8 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	printk("copy succeeded");
 	rm_message(&mb);
 	printk("read to return");
+
+	//spin_lock(lock);
 	//successful
 	return 0;
 }
@@ -503,7 +509,8 @@ static int __init interceptor_start(void) {
 	enable_page_protection();
 
 	//mailCache and mbCache are global variables
-	spin_lock_init(lock);
+	//spin_lock_init(lock);
+	static DEFINE_SPINLOCK(lock);
 	mailCache = kmem_cache_create("mail", sizeof(message), 0, 0, NULL);
 	mbCache = kmem_cache_create("mb", sizeof(mailbox), 0, 0, NULL);
 	msgCache = kmem_cache_create("msg", MAX_MSG_SIZE, 0, 0, NULL);
