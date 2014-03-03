@@ -18,6 +18,7 @@
 
 int main() {
   int childCounter;
+	int ret;
   
   for(childCounter = 0; childCounter < CHILD_NUM; childCounter++) {
     int childPID = fork();
@@ -28,21 +29,21 @@ int main() {
       int len;
       bool block = true;
       
-      RcvMsg(&sender,msg,&len,block);
+      ret = RcvMsg(&sender,msg,&len,block);
     
       
-      printf("Message: %s\n", (char *)msg);
+      printf("Message: %s\n, ret = %d", (char *)msg, ret);
       char myMesg[] = "I am your child";
-      if(SendMsg(sender, myMesg, 16, block)) {
-	printf("Child send failed.\n");
+      if(ret = SendMsg(sender, myMesg, 16, block)) {
+	printf("Child send failed. ret = %d\n", ret);
       }
       
       return 0;
     }
     else{
       char mesg[] = "I am your father";
-      if (SendMsg(childPID, mesg, 17, false)){
-	printf("Send failed\n");
+      if (ret = SendMsg(childPID, mesg, 17, false)){
+	printf("Send failed, ret = %d\n", ret);
       }
     }
   }
@@ -54,8 +55,8 @@ int main() {
     int mLen;
     bool mBlock = true;
     
-    RcvMsg(&aSender,reply,&mLen,mBlock);
-    printf("Child %d, enqueued # %d Message: %s\n", aSender, msgCounter, (char *)reply);
+    ret = RcvMsg(&aSender,reply,&mLen,mBlock);
+    printf("Child %d, enqueued # %d Message: %s, ret = %d\n", aSender, msgCounter, (char *)reply, ret);
   }
   return 0;
 }

@@ -18,8 +18,8 @@
 #include <linux/signal.h>
 #include <stdbool.h>
 #include <linux/unistd.h>
+#include <linux/sched.h>
 /*
-#include <linux/sched.h> //header defining task_struct
 #include <linux/list.h> //macros for linked list
 #include <asm-generic/current.h> //header defining "current"
 #include <asm-generic/cputime.h> //cputime_to_usecs()
@@ -89,7 +89,7 @@ void free_mail(message* mail){
 		kmem_cache_free(msgCache, mail->content);
 	}
 	if (mail != NULL) {
-	kmem_cache_free(mailCache, mail);
+		kmem_cache_free(mailCache, mail);
 	}
 }
 
@@ -99,7 +99,7 @@ void free_mb(mailbox* mb){
 	free_mb(mb->next);
 	free_mail(mb->msg);
 	if (mb != NULL) {
-	kmem_cache_free(mbCache, mb);
+		kmem_cache_free(mbCache, mb);
 	}
 }
 
@@ -110,8 +110,6 @@ void free_ht(void){
 		free_mb(all[i]);
 	}
 }
-
-
 
 
 /*allocate memory space for a new mail*/
@@ -249,18 +247,26 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	void* msg = new_msg();
 	message* this_mail;
 	mailbox* dest_mailbox;
+	struct task_struct* dest_ts;
+	int existence;
 	printk(KERN_INFO "Reach4");
 
 	if (copy_from_user(msg, a_msg, len))
 		return MSG_ARG_ERROR;
 
 	//check if destination is valid
-	//int existence = kill(dest, 0);
+	if (dest <= 0) return MAILBOX_INVALID;
+	//find task struct for destination pid
+	dest_ts = pid_task(find_vpid(dest), PIDTYPE_PID);
+	// find_task_by_vpid(dest);
+	if (dest_ts == NULL) return MAILBOX_INVALID;
+	//state not 0 or kernel task, invalid dest
+	existence = dest_ts->state;
+	if ((existence != 0) || (dest_ts->mm == NULL)) return MAILBOX_INVALID;
 	printk(KERN_INFO "Reach3");
-	dest_mailbox = get_mailbox(dest);
 	
-	if (/*existence != 0 ||*/ dest <= 0 /*|| process && mailbox deleted*/) //kernel tasks, system processes
-		return MAILBOX_INVALID;
+	//get destination mailbox
+	dest_mailbox = get_mailbox(dest);
 		
 	if (dest_mailbox == NULL) {
 		dest_mailbox = create_mailbox(dest);
@@ -320,6 +326,8 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
 	this_mail = get_msg(&mb);
 
+	if (this_mail == NULL) return 1155665;
+
 	a_sender = &(this_mail->sender);
 	a_msg = this_mail->content;
 	a_len = &(this_mail->len);
@@ -368,13 +376,17 @@ asmlinkage long sys_ManageMailbox(bool stop, int *count){
 	return 0;
 }
 
-
+/*
 asmlinkage long sys_mb_exit(int error_code){
 	pid_t mypid = current->pid;
 	mailbox *mb = get_mailbox(mypid);
 	if (mb != NULL){
+	//here is some comment
 		free_mail(mb->msg);
-		kmem_cache_free(mbCache, mb);
+		//here is some comment
+		if (mb != NULL)
+			//here is some comment
+			kmem_cache_free(mbCache, mb);
 	}
 	(*ref_sys_exit)(error_code);
 	return 0;
@@ -384,14 +396,18 @@ asmlinkage long sys_mb_exit_group(int error_code){
 	pid_t mypid = current->pid;
 	mailbox *mb = get_mailbox(mypid);
 	if (mb != NULL){
+		//here is some comment
 		free_mail(mb->msg);
-		kmem_cache_free(mbCache, mb);
+		//here is some comment
+		if (mb != NULL)
+			//here is some comment
+			kmem_cache_free(mbCache, mb);
 	}
 	(*ref_sys_exit_group)(error_code);
 	return 0;
 }
 
-
+*/
 
 static unsigned long **find_sys_call_table(void) {
 	unsigned long int offset = PAGE_OFFSET;
