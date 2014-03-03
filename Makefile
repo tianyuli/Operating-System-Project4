@@ -8,17 +8,17 @@ all:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	$ sudo rmmod mailbox_LKM.ko
 	$ sudo insmod mailbox_LKM.ko
-	cd P*; ./testmailbox2; tail -n 50 /var/log/syslog
+	cd P*; ./testmailbox3; tail -n 50 /var/log/syslog
 first:
 	make clean
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	$ sudo insmod mailbox_LKM.ko
-	cd P*; ./testmailbox2; tail -n 50 /var/log/syslog
+	cd P*; ./testmailbox3; tail -n 50 /var/log/syslog
 nolog:
 	make clean
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	$ sudo rmmod mailbox_LKM.ko
 	$ sudo insmod mailbox_LKM.ko
-	cd P*; ./testmailbox2
+	cd P*; ./testmailbox3
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean

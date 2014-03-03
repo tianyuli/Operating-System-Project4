@@ -67,6 +67,7 @@ struct kmem_cache* msgCache;
 
 mailbox* all[HASHTABLE_SIZE]; //pointer to table
 message** temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
+spinlock_t table_lock;
 
 /**
  * hash: form hash value for given pid
@@ -80,6 +81,7 @@ unsigned hash (pid_t pid){
 void init_ht(void){
 	//spin_lock(lock);
 	int i;
+	spin_lock_init(&table_lock);
 	for (i = 0; i < HASHTABLE_SIZE; i++){
 		all[i] = NULL;
 	}
@@ -179,10 +181,12 @@ mailbox* create_mailbox(pid_t pid) {
 	mb->msg = NULL;
 	
 	hashval = hash(pid);
-	//spin_lock(lock);
+	
+	spin_lock(&table_lock);
 	mb->next = all[hashval];
 	all[hashval] = mb;
-	//spin_unlock(lock);
+	spin_lock_init(&(mb->lock));
+	spin_unlock(&table_lock);
 	printk("created mailbox at hashval = %d, address = %p, address next = %p", hashval, mb, mb->next);
 	return mb;
 }
@@ -311,7 +315,6 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	printk(KERN_INFO "Reach2");
 	printk(KERN_INFO "pid in send = %d", dest);
 
-	spin_lock_init(&(dest_mailbox->lock));
 	spin_lock(&(dest_mailbox->lock));
 	add_message(&dest_mailbox, &this_mail);
 	spin_unlock(&(dest_mailbox->lock));
@@ -353,7 +356,6 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 		printk("LLLLLLLLLLLOOOPPPP");
 	}	
 	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
-	spin_lock_init(&(mb->lock));
 	spin_lock(&(mb->lock));
 	this_mail = get_msg(&mb);
 	spin_unlock(&(mb->lock));
