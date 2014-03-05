@@ -11,31 +11,31 @@ int main (){
 	int count = 0;
 
 	/*******************************test1************************************/
-	printf("TEST1\n");
+	printf("\n###TEST1###\n");
 	printf("Sending Message to pid = -3, expect MAILBOX_INVALID (1004)\n");
 	ret = SendMsg(-3, mesg, 15, false);
 	if (ret){
 		printf("Send failed: error = %d\n", ret);
-		if (ret == 1004) count ++;
+		if (ret == 1004) count++;
 	}
 	/*******************************test2************************************/
-	printf("TEST2\n");
+	printf("\n###TEST2###\n");
 	printf("Sending message to my child (which does not exist) expect MAILBOX_INVALID (1004)\n");
 	ret = SendMsg(mypid+1, mesg, 15, false);
 	if (ret){
 		printf("Send failed: error = %d\n", ret);
-		if (ret == 1004) count ++;
+		if (ret == 1004) count++;
 	}
 	/*******************************test3************************************/
-	printf("TEST3\n");
+	printf("\n###TEST3###\n");
 	printf("Sending message to kernel task (pid == 1) expect MAILBOX_INVALID (1004)\n");
 	ret = SendMsg(1, mesg, 15, false);
 	if (ret){
 		printf("Send failed: error = %d\n", ret);
-		if (ret == 1004) count ++;
+		if (ret == 1004) count++;
 	}
 	/*******************************test4************************************/
-	printf("TEST4\n");
+	printf("\n###TEST4###\n");
 	printf("Try to receive message from a empty mailbox, expect MAILBOX_EMPTY (1002)\n");
 	printf("Sending Message to myself.\n");
 	ret = SendMsg(mypid, mesg, 15, false);
@@ -49,7 +49,7 @@ int main (){
     ret = RcvMsg(&sender,msg,&len,block);
 	if (ret){
 		printf("Receive failed for the first time! error = %d\n", ret);
-		count --;
+		count--;
 	}
     else{
 		printf("Message received.\n");
@@ -59,8 +59,81 @@ int main (){
 	ret = RcvMsg(&sender,msg,&len,block);
 	if (ret) {
 		printf("Receive failed for the second time! error = %d\n", ret);
-		if (ret == MAILBOX_EMPTY) count ++;
+		if (ret == MAILBOX_EMPTY) count++;
 	}
+	
+
+	/*******************************test5************************************/
+	printf("###TEST5###\n");
+	printf("Try receiving message from a mailbox that has been stopped, expect error MAILBOX_STOPPED (1003)\n");
+
+	printf("Sending Message to myself.\n");
+	ret = SendMsg(mypid, mesg, 15, false);
+	if (ret){
+	  printf("Send failed: error = %d, mypid = %d", ret, mypid);
+	}
+	int msgCount;
+	//now stop mailbox
+	ManageMailbox(true, &msgCount);
+	printf("Mailbox stopped.\n");
+    ret = RcvMsg(&sender,msg,&len,block);
+	if (ret){
+		printf("Receive failed! error = %d\n", ret);
+		if (ret == MAILBOX_STOPPED) count++;
+	}
+    else{
+		printf("Message received.\n");
+		printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, ret);	
+		count--;
+	}
+
+	/*******************************test6************************************/
+	printf("###TEST6###\n");
+	printf("Try sending message to a mailbox that has been stopped, expect error MAILBOX_STOPPED (1003)\n");
+	printf("Now try send message to myself again, my mailbox is stopped so should get error\n");
+	ret = SendMsg(mypid, mesg, 15, false);
+	if (ret){
+		printf("Send failed: error = %d, mypid = %d", ret, mypid);
+		if (ret == MAILBOX_STOPPED) count++;
+	}
+	else{
+		printf("Message Sent.\n");
+		count--;
+	}
+
+	/*******************************test7************************************
+	printf("###TEST7###\n");
+	printf("Try sending a message to myself with negative length, expect error MSG_LENGTH_ERROR (1005)\n");
+	ret = SendMsg(mypid, mesg, -3, false);
+	if (ret) {
+		printf("Send failed: error = %d, mypid = %d", ret, mypid);
+		if (ret == MSG_LENGTH_ERROR) count++;
+	}
+	else {
+		printf("Message received.\n");
+		printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, ret);	
+		count--;
+	}
+
+	/*******************************test8************************************
+	printf("###TEST8###\n");
+	printf("Try sending a message to myself with length greater than max, expect error MSG_LENGTH_ERROR (1005)\n");
+	ret = SendMsg(mypid, mesg, 200, false);
+	if (ret) {
+		printf("Send failed: error = %d, mypid = %d", ret, mypid);
+		if (ret == MSG_LENGTH_ERROR) count++;
+	}
+	else {
+		printf("Message received.\n");
+		printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, ret);	
+		count--;
+	}
+
+	/*******************************test9************************************
+	printf("###TEST9###\n");
+	printf("Try sending a message to myself with \n");
+
+/*
 	else {
 		printf("ret = %d\n", ret);
 		printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, ret);
@@ -75,6 +148,7 @@ int main (){
 		printf("ret = %d\n", ret);
 		printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, ret);
 	}
+*/
 	
 	/*
 	void *msg[128];
@@ -86,6 +160,6 @@ int main (){
     printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, ret);
 	*/
 	return 0;
-	
-
 }
+
+

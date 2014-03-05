@@ -21,7 +21,7 @@ int main (){
 		ret = SendMsg(mypid, mesg, 15, false);
 		if (ret){
 			printf("Send failed: error = %d, mypid = %d, count = %d\n", ret, mypid, i+1);
-			if (ret == MAILBOX_FULL) failCount ++;
+			if (ret == MAILBOX_FULL) failCount++;
 		}
 	}
 	for (i = 0; i < 35; i++){
@@ -30,12 +30,18 @@ int main (){
 		bool block = true;
 		int sender;
 		ret = RcvMsg(&sender, msg, &len, block);
-		printf("Message received. #%d\n", i+1);
-		printf("Message: %s, sender = %d, len = %d, return = %d, count = %d\n", (char *) msg, sender, len, ret, i+1);
-		if ((sender == mypid) && (strcmp((char*)msg, mesg) == 0) && (len == 15)) rcvCount++;
+		if (ret) {
+			printf("#%d Receive failed, return = %d\n", i+1, ret);
+			if (ret == MAILBOX_EMPTY) failCount++;
+		}
+		else {
+			printf("Message received. #%d\n", i+1);
+			printf("Message: %s, sender = %d, len = %d, return = %d, count = %d\n", (char *) msg, sender, len, ret, i+1);
+			if ((sender == mypid) && (strcmp((char*)msg, mesg) == 0) && (len == 15)) rcvCount++;
+		}
 	}
 	printf("---------------------------RESULT-----------------------------------------------\n");
-	if ((rcvCount == 35) && (failCount == 3)) printf("TEST PASSED!\n");
+	if ((rcvCount == 32) && (failCount == 6)) printf("TEST PASSED!\n");
 	else printf("TEST FAILED! rcvCount = %d, sentFailCount = %d\n", rcvCount, failCount);
 	return 0;
 }

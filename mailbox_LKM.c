@@ -44,7 +44,9 @@ typedef struct message_struct {
 
 /* define data structure for mailbox */
 typedef struct mailbox_linked_list {
-	//wait_queue_head_t wqh;
+	//wait_queue_head_t wait_null;
+	wait_queue_head_t wait_full;
+	wait_queue_head_t wait_empty;
 	pid_t pid;
 	message* msg;
 	int size;
@@ -179,13 +181,15 @@ mailbox* create_mailbox(pid_t pid) {
 	mb->size = 0;
 	mb->pid = pid;
 	mb->msg = NULL;
-	
+	spin_lock_init(&(mb->lock));
+	init_waitqueue_head(&(mb->wait_full));
+	init_waitqueue_head(&(mb->wait_empty));
+
 	hashval = hash(pid);
 	
 	spin_lock(&table_lock);
 	mb->next = all[hashval];
 	all[hashval] = mb;
-	spin_lock_init(&(mb->lock));
 	spin_unlock(&table_lock);
 	printk("created mailbox at hashval = %d, address = %p, address next = %p", hashval, mb, mb->next);
 	return mb;
@@ -209,7 +213,8 @@ void add_message(mailbox** mb, message** message) {
 	}
 	else {
 		while ((*temp)->next != NULL) {
-			(*temp) = (*temp)->next;
+			printk("*temp = %p", *temp);
+			temp = &((*temp)->next);
 		}
 		(*temp)->next = (*message);
 	}
@@ -219,7 +224,10 @@ void add_message(mailbox** mb, message** message) {
 	if ((*mb)->size == MAX_MB_SIZE) {
 		(*mb)->full = TRUE;
 	}
-	printk("added message to mailbox at address %p, message address %p, temp = %p", *mb, (*message), temp);
+	else if ((*mb)->size == 1) { //previously empty
+		wake_up(&((*mb)->wait_empty));
+	}
+	printk("added message to mailbox at address %p, message address %p, temp = %p", *mb, (*message), *temp);
 	//kmem_cache_free(mailCache, temp);
 	//wake_up_locked(&(*mb)->wqh);
 	//spin_unlock(&(*mb)->wqh.lock);
@@ -247,6 +255,7 @@ void rm_message(mailbox** mb) {
 	((*mb)->size) --;
 	if ((*mb)->full) {
 		(*mb)->full = FALSE;
+		wake_up(&((*mb)->wait_full));
 	}
 	printk("rm over, mb size = %d", (*mb)->size);
 	//kmem_cache_free(mailCache, temp);
@@ -258,7 +267,7 @@ void rm_message(mailbox** mb) {
 message* get_msg(mailbox** mb){
 	printk("got message, msg address = %p", (*mb)->msg);
 	return (*mb)->msg;
-	rm_message(mb);
+	//rm_message(mb);
 }
 		
 
@@ -338,21 +347,25 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	pid_t *a_sender;
 	void *a_msg;
 	int *a_len;
+	//wait_queue_head_t wait_null;
 	//while ((block == BLOCK) && (mb == NULL));
 	printk(KERN_INFO "pid before get = %d", my_pid);
 	
-	//while (mb->size == 0);
-	while ((block == BLOCK) && (mb == NULL)){
-		mb = get_mailbox(my_pid);
+	mb = get_mailbox(my_pid);
+/*
+	if (block == BLOCK) && (mb == NULL)){
+		wait_event(wait_null, mb != NULL);
 	}
+*/
 	if (mb == NULL) return 12345;
 	
 	if ((block == NO_BLOCK) && (mb->size == 0))
 		return MAILBOX_EMPTY;
-	if (mb->stop && (mb->size == 0))
+	if ((mb->stop)/* && (mb->size == 0)*/)
 		return MAILBOX_STOPPED;
 
-	while ((block == BLOCK) && (mb->size == 0)) {
+	if ((block == BLOCK) && (mb->size == 0)) {
+		wait_event(mb->wait_empty, mb->size != 0);
 		printk("LLLLLLLLLLLOOOPPPP");
 	}	
 	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
@@ -379,7 +392,9 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 		 return MSG_ARG_ERROR;
 	//any other error return MAILBOX_ERROR
 	printk("copy succeeded");
-	//rm_message(&mb);
+	spin_lock(&(mb->lock));
+	rm_message(&mb);
+	spin_unlock(&(mb->lock));
 	printk("read to return");
 
 	//spin_lock(lock);
@@ -401,11 +416,13 @@ asmlinkage long sys_ManageMailbox(bool stop, int *count){
 		return MSG_ARG_ERROR;
 		
 	mb = get_mailbox(my_pid);
+	spin_lock(&(mb->lock));
 	if (a_stop) {
 		mb->stop = TRUE;
+		wake_up_all(&(mb->wait_full));
 	}
 	a_count = mb->size;
-	
+	spin_unlock(&(mb->lock));
 	if (copy_to_user(count, &a_count, sizeof(int)))
 		return MSG_ARG_ERROR;
 
