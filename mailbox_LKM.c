@@ -68,7 +68,8 @@ struct kmem_cache* mbCache;
 struct kmem_cache* msgCache;
 
 mailbox* all[HASHTABLE_SIZE]; //pointer to table
-message** temp;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
+message** temp;
+message* temp2;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
 spinlock_t table_lock;
 
 /**
@@ -217,6 +218,11 @@ void add_message(mailbox** mb, message** message) {
 			temp = &((*temp)->next);
 		}
 		(*temp)->next = (*message);
+		printk("*second last = %p", *temp);
+		printk("its next = %p", (*temp)->next);
+		printk("*last = %p", *message);
+		printk("its next = %p", (*message)->next);
+		//printk("its content = %s", (*char)(*message)->next->content);
 	}
 	//mb->msg = temp;
 	
@@ -227,7 +233,7 @@ void add_message(mailbox** mb, message** message) {
 	else if ((*mb)->size == 1) { //previously empty
 		wake_up(&((*mb)->wait_empty));
 	}
-	printk("added message to mailbox at address %p, message address %p, temp = %p", *mb, (*message), *temp);
+	printk("added message to mailbox at address %p, message address %p, temp = %p, mseeage = %s", *mb, (*message), *temp, (char*)(*message)->content);
 	//kmem_cache_free(mailCache, temp);
 	//wake_up_locked(&(*mb)->wqh);
 	//spin_unlock(&(*mb)->wqh.lock);
@@ -238,27 +244,34 @@ void add_message(mailbox** mb, message** message) {
  * remove oldest message from the given mailbox
  */
 void rm_message(mailbox** mb) {
-	(*temp) = (*mb)->msg;
-	printk("*temp is %p", temp);
-	if ((*temp) == NULL)
+	temp2 = (*mb)->msg;
+	printk("*temp2 is %p", temp2);
+	if (temp2 == NULL)
 		return;
 	//acquire spin lock
 	//spin_lock(&(*mb)->wqh.lock);
 	//spin_lock(lock);
-	printk("rm msg: *temp not NULL");
-	if ((*mb)->msg->next == NULL) (*mb)->msg = NULL;
-	else (*mb)->msg = (*mb)->msg->next;
+	printk("rm msg: *temp2 not NULL");
+	if ((*mb)->msg->next == NULL) {
+		(*mb)->msg = NULL;
+		printk("cleared");
+	}
+	else {
+		(*mb)->msg = (*mb)->msg->next;
+		printk("head = %p", (*mb)->msg);
+		printk("its content is %s", (char*)(*mb)->msg->content);
+	}
 	printk("about to free *temp");
-	if ((*temp) != NULL)
-		kmem_cache_free(mailCache, (*temp));
-	printk("freed *temp");
+	if (temp2 != NULL)
+		kmem_cache_free(mailCache, temp2);
+	printk("freed *temp2");
 	((*mb)->size) --;
 	if ((*mb)->full) {
 		(*mb)->full = FALSE;
 		wake_up(&((*mb)->wait_full));
 	}
 	printk("rm over, mb size = %d", (*mb)->size);
-	//kmem_cache_free(mailCache, temp);
+	//kmem_cache_free(mailCache, temp2);
 	//wake_up_locked(&(*mb)->wqh);
 	//spin_unlock(&(*mb)->wqh.lock);
 	//spin_unlock(lock);
@@ -266,6 +279,7 @@ void rm_message(mailbox** mb) {
 
 message* get_msg(mailbox** mb){
 	printk("got message, msg address = %p", (*mb)->msg);
+	printk("its content = %s", (char*)(*mb)->msg->content);
 	return (*mb)->msg;
 	//rm_message(mb);
 }
@@ -303,17 +317,16 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	
 	//get destination mailbox
 	dest_mailbox = get_mailbox(dest);
-		
 	if (dest_mailbox == NULL) {
 		dest_mailbox = create_mailbox(dest);
 		if (dest_mailbox == NULL) return 98765;
 	}
+	printk(KERN_INFO "mb->stop = %d", dest_mailbox->stop);
 	if ((block == TRUE) && (dest_mailbox->full == TRUE)){
 		//wait until not full and send message
 	}
 	else if (block == FALSE && (dest_mailbox->full == TRUE))
-		return MAILBOX_FULL;
-	if (dest_mailbox->stop)
+		return MAILBOX_FULL;	if (dest_mailbox->stop)
 		return MAILBOX_STOPPED;
 	if ((len > MAX_MSG_SIZE) || (len < 0))
 		return MSG_LENGTH_ERROR;
@@ -359,16 +372,17 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 */
 	if (mb == NULL) return 12345;
 	
+	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
+	printk(KERN_INFO "mb->stop = %d", mb->stop);
+	if ((mb->stop) && (mb->size == 0))
+		return MAILBOX_STOPPED;
 	if ((block == NO_BLOCK) && (mb->size == 0))
 		return MAILBOX_EMPTY;
-	if ((mb->stop)/* && (mb->size == 0)*/)
-		return MAILBOX_STOPPED;
 
 	if ((block == BLOCK) && (mb->size == 0)) {
 		wait_event(mb->wait_empty, mb->size != 0);
 		printk("LLLLLLLLLLLOOOPPPP");
 	}	
-	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
 	spin_lock(&(mb->lock));
 	this_mail = get_msg(&mb);
 	spin_unlock(&(mb->lock));
@@ -378,7 +392,7 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	a_sender = &(this_mail->sender);
 	a_msg = this_mail->content;
 	a_len = &(this_mail->len);
-	printk("a_sender = %d, a_msg = %p, a_len = %d", *a_sender, a_msg, *a_len);
+	printk("a_sender = %d, a_msg = %p, a_len = %d, thismail= %p", *a_sender, a_msg, *a_len, this_mail);
 
 	if (((*a_len) > MAX_MSG_SIZE) || ((*a_len) < 0))
 		return MSG_LENGTH_ERROR;
@@ -386,7 +400,7 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	printk("got here yooooooooooooooooo");
 	if ((copy_to_user(sender, a_sender, sizeof(pid_t))))
 		return 2000;
-	if ((copy_to_user(msg, a_msg, MAX_MSG_SIZE)))
+	if ((copy_to_user(msg, a_msg, *a_len)))
 		return 3000;
 	if ((copy_to_user(len, a_len, sizeof(int))))
 		 return MSG_ARG_ERROR;
@@ -408,16 +422,17 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
  * */
 asmlinkage long sys_ManageMailbox(bool stop, int *count){
 	pid_t my_pid = current->pid;
+	printk(KERN_INFO "Starting Manage Mailbox");
 	
 	bool a_stop;
 	mailbox* mb;
 	int a_count;
-	if (copy_from_user(&stop, &a_stop, sizeof(bool)))
-		return MSG_ARG_ERROR;
+	//if (copy_from_user(&stop, &a_stop, sizeof(bool)))
+		//return MSG_ARG_ERROR;
 		
 	mb = get_mailbox(my_pid);
 	spin_lock(&(mb->lock));
-	if (a_stop) {
+	if (stop) {
 		mb->stop = TRUE;
 		wake_up_all(&(mb->wait_full));
 	}
@@ -558,13 +573,16 @@ static void __exit interceptor_end(void) {
 		return;
 		
 	//done with mailnoxes
-	kmem_cache_destroy(mailCache);
-	kmem_cache_destroy(mbCache);
-	kmem_cache_destroy(msgCache);
+
 	if ((temp) != NULL){
 		if (*temp != NULL)
 			kmem_cache_free(mailCache, (*temp));
 	}
+
+	kmem_cache_destroy(mailCache);
+	kmem_cache_destroy(mbCache);
+	kmem_cache_destroy(msgCache);
+	
 	free_ht();
 
 	/* Revert all system calls to what they were before we began. */

@@ -19,6 +19,7 @@ int main (){
 	for (i = 0; i < 35; i++){
 		printf("Sending Message to myself. #%d\n", i+1);
 		ret = SendMsg(mypid, mesg, 15, false);
+		printf("Message is: %s", (char *) mesg);
 		if (ret){
 			printf("Send failed: error = %d, mypid = %d, count = %d\n", ret, mypid, i+1);
 			if (ret == MAILBOX_FULL) failCount++;
@@ -27,7 +28,7 @@ int main (){
 	for (i = 0; i < 35; i++){
 		void *msg[128];
 		int len;
-		bool block = true;
+		bool block = false;
 		int sender;
 		ret = RcvMsg(&sender, msg, &len, block);
 		if (ret) {

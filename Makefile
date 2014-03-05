@@ -18,7 +18,6 @@ first:
 	make clean
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	$ sudo insmod mailbox_LKM.ko
-	cd P*; ./testmailbox3; tail -n 50 /var/log/syslog
 nolog:
 	make clean
 	$(MAKE) -C $(KDIR) M=$(PWD) modules

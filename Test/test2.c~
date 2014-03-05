@@ -16,18 +16,19 @@ int main (){
 	int mypid = getpid();
 	int rcvCount = 0;
 	int failCount = 0;
-	for (i = 0; i < 35; i++){
+	for (i = 0; i < 30; i++){
 		printf("Sending Message to myself. #%d\n", i+1);
 		ret = SendMsg(mypid, mesg, 15, false);
+		printf("Message is: %s", (char *) mesg);
 		if (ret){
 			printf("Send failed: error = %d, mypid = %d, count = %d\n", ret, mypid, i+1);
 			if (ret == MAILBOX_FULL) failCount++;
 		}
 	}
-	for (i = 0; i < 35; i++){
+	for (i = 0; i < 30; i++){
 		void *msg[128];
 		int len;
-		bool block = true;
+		bool block = false;
 		int sender;
 		ret = RcvMsg(&sender, msg, &len, block);
 		if (ret) {
@@ -41,7 +42,7 @@ int main (){
 		}
 	}
 	printf("---------------------------RESULT-----------------------------------------------\n");
-	if ((rcvCount == 35) && (failCount == 3)) printf("TEST PASSED!\n");
+	if ((rcvCount == 32) && (failCount == 6)) printf("TEST PASSED!\n");
 	else printf("TEST FAILED! rcvCount = %d, sentFailCount = %d\n", rcvCount, failCount);
 	return 0;
 }
