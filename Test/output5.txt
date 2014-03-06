@@ -1,0 +1,8 @@
+//@author Xi Wen(xwen) && Tianyu Li(tli) && Xia Li(xli2)
+
+tli@ubuntu:~/Documents/Operating-System-Project4/Test$ ./test5
+Message sent.
+Message sent. Wait 5s
+Child awakes.
+Parent awakes.
+

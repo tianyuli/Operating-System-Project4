@@ -3,6 +3,8 @@
  * CS 3013
  * Project 4 - test program 4
  * Test message flushing
+ *
+ * @author Xi Wen(xwen) && Tianyu Li(tli) && Xia Li(xli2)
  */
 
 #include "mailbox.h"

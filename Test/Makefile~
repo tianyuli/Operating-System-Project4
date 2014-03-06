@@ -24,4 +24,4 @@ test3.o: test3.c mailbox.h
 	gcc -Wall -g -c test3.c 
 
 clean:
-	rm *.o test1 test2
+	rm *.o test1 test2 test3
