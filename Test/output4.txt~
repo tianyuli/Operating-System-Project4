@@ -1,5 +1,0 @@
-tli@ubuntu:~/Documents/Operating-System-Project4/Test$ ./test4
-Sending Message to child.
-Message received.
-Message: I am your father, sender = 3660, len = 17, mypid = 3661 return = 0
-
