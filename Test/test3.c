@@ -13,7 +13,7 @@ int main (){
 	int count = 0;
 
 	/*******************************test1************************************/
-	printf("\n###TEST1###\n");
+	printf("\n\n###TEST1###\n");
 	printf("Sending Message to pid = -3, expect MAILBOX_INVALID (1004)\n");
 	ret = SendMsg(-3, mesg, 15, false);
 	if (ret){
@@ -21,7 +21,7 @@ int main (){
 		if (ret == 1004) count++;
 	}
 	/*******************************test2************************************/
-	printf("\n###TEST2###\n");
+	printf("\n\n###TEST2###\n");
 	printf("Sending message to my child (which does not exist) expect MAILBOX_INVALID (1004)\n");
 	ret = SendMsg(mypid+1, mesg, 15, false);
 	if (ret){
@@ -29,7 +29,7 @@ int main (){
 		if (ret == 1004) count++;
 	}
 	/*******************************test3************************************/
-	printf("\n###TEST3###\n");
+	printf("\n\n###TEST3###\n");
 	printf("Sending message to kernel task (pid == 1) expect MAILBOX_INVALID (1004)\n");
 	ret = SendMsg(1, mesg, 15, false);
 	if (ret){
@@ -37,7 +37,7 @@ int main (){
 		if (ret == 1004) count++;
 	}
 	/*******************************test4************************************/
-	printf("\n###TEST4###\n");
+	printf("\n\n###TEST4###\n");
 	printf("Try to receive message from a empty mailbox, expect MAILBOX_EMPTY (1002)\n");
 	printf("Sending Message to myself.\n");
 	ret = SendMsg(mypid, mesg, 15, false);
@@ -64,11 +64,11 @@ int main (){
 	}
 	
 	/*******************************test5************************************/
-	printf("###TEST5###\n");
-	printf("Try sending a message to myself with incorrect length\n");
+	printf("\n\n###TEST5###\n");
+	printf("Try sending a null message to myself\n");
 	printf("Expect error MSG_ARG_ERROR (1006)\n");
 	
-	ret = SendMsg(mypid, *mesg, 15, false);
+	ret = SendMsg(mypid, NULL, 15, false);
 
 	if (ret) {
 		printf("Send failed: error = %d, mypid = %d\n", ret, mypid);
@@ -80,7 +80,7 @@ int main (){
 	}
 
 	/*******************************test6************************************/
-	printf("###TEST6###\n");
+	printf("\n\n###TEST6###\n");
 	printf("Try receiving message from a mailbox that has been stopped, expect error MAILBOX_STOPPED (1003)\n");
 
 	printf("Sending Message to myself.\n");
@@ -116,7 +116,7 @@ int main (){
 	}
 
 	/*******************************test7************************************/
-	printf("###TEST7###\n");
+	printf("\n\n###TEST7###\n");
 	printf("Try sending message to a mailbox that has been stopped, expect error MAILBOX_STOPPED (1003)\n");
 	printf("Now try send message to myself again, my mailbox is stopped so should get error\n");
 	ret = SendMsg(mypid, mesg, 15, false);
@@ -129,7 +129,7 @@ int main (){
 	}
 
 	/*******************************test8************************************/
-	printf("###TEST8###\n");
+	printf("\n\n###TEST8###\n");
 	printf("Try sending a message to myself with negative length, expect error MSG_LENGTH_ERROR (1005)\n");
 	ret = SendMsg(mypid, mesg, -3, false);
 	if (ret) {
@@ -142,7 +142,7 @@ int main (){
 	}
 
 	/*******************************test9************************************/
-	printf("###TEST9###\n");
+	printf("\n\n###TEST9###\n");
 	printf("Try sending a message to myself with length greater than max, expect error MSG_LENGTH_ERROR (1005)\n");
 	ret = SendMsg(mypid, mesg, 200, false);
 	if (ret) {
