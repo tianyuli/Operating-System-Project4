@@ -69,6 +69,7 @@ asmlinkage long (*ref_sys_cs3013_syscall2)(void);
 asmlinkage long (*ref_sys_cs3013_syscall3)(void);
 asmlinkage long (*ref_sys_exit)(int error_code);
 asmlinkage long (*ref_sys_exit_group)(int error_code);
+
 struct kmem_cache* mailCache;
 struct kmem_cache* mbCache;
 struct kmem_cache* msgCache;
@@ -78,7 +79,8 @@ mailbox* all[HASHTABLE_SIZE]; //pointer to table
 signal* all2[HASHTABLE_SIZE];
 
 message** temp;
-message* temp2;// = (message*) kmem_cache_alloc(mailCache, GFP_KERNEL);
+message* temp2;
+
 spinlock_t table_lock;
 spinlock_t table_lock2;
 
@@ -92,13 +94,11 @@ unsigned hash (pid_t pid){
 
 /*initialize hashtable*/
 void init_ht(void){
-	//spin_lock(lock);
 	int i;
 	spin_lock_init(&table_lock);
 	for (i = 0; i < HASHTABLE_SIZE; i++){
 		all[i] = NULL;
 	}
-	//spin_unlock(lock);
 }
 
 void init_ht2(void){
@@ -200,10 +200,9 @@ signal* get_signal(pid_t pid) {
 
 	for (sig = all2[hash(pid)]; sig != NULL; sig = sig->next){
 		if (pid == sig->pid){
-		    return sig; //found
+			return sig; //found
 		}
 	}
-	//printk("did not find mailbox :(");
 	return NULL; //not found
 }
 
@@ -214,23 +213,22 @@ mailbox* create_mailbox(pid_t pid) {
 	mailbox* mb = new_mb();
 	unsigned hashval;
 	
-	//init_waitqueue_head(&(mb->wqh));
 	mb->stop = FALSE;
 	mb->full = FALSE;
 	mb->size = 0;
 	mb->pid = pid;
 	mb->msg = NULL;
+
 	spin_lock_init(&(mb->lock));
+
 	init_waitqueue_head(&(mb->wait_full));
 	init_waitqueue_head(&(mb->wait_empty));
-
 	hashval = hash(pid);
 	
 	spin_lock(&table_lock);
 	mb->next = all[hashval];
 	all[hashval] = mb;
 	spin_unlock(&table_lock);
-	printk("created mailbox at hashval = %d, address = %p, address next = %p", hashval, mb, mb->next);
 
 	return mb;
 }
@@ -241,17 +239,12 @@ mailbox* create_mailbox(pid_t pid) {
 mailbox* get_mailbox(pid_t pid) {
 	mailbox* mb;
 	int count = 0;
-	//printk("pid in get= %d, hashpid = %u", pid, hash(pid));
-	//printk("all[hashpid] = %p, all[hashpid]->pid = %d", all[hash(pid)], all[hash(pid)]->pid);
 	for (mb = all[hash(pid)]; mb != NULL; mb = mb->next){
 		if (pid == mb->pid){
-			printk("found mailbox for pid %d, mailbox # = %d", pid, mb->pid);
-		    return mb; //found
+			return mb; //found
 		}
 		count++;
-		printk("count=%d", count);
 	}
-	//printk("did not find mailbox :(");
 	return NULL; //not found
 }
 
@@ -270,12 +263,9 @@ message* create_message(pid_t sender, int len, void *msg) {
  */
 void add_message(mailbox** mb, message** message) {
 	if ((*message) == NULL){
-		printk("adding message, msg == NULL");		
 		return;
 	}
-	//acquire spin lock
-	//spin_lock(&(*mb)->wqh.lock);
-	//spin_lock(lock);
+
 	temp = &((*mb)->msg);
 	if ((*temp) == NULL) {
 		(*temp) = (*message);
@@ -283,17 +273,10 @@ void add_message(mailbox** mb, message** message) {
 	}
 	else {
 		while ((*temp)->next != NULL) {
-			printk("*temp = %p", *temp);
 			temp = &((*temp)->next);
 		}
 		(*temp)->next = (*message);
-		printk("*second last = %p", *temp);
-		printk("its next = %p", (*temp)->next);
-		printk("*last = %p", *message);
-		printk("its next = %p", (*message)->next);
-		//printk("its content = %s", (*char)(*message)->next->content);
 	}
-	//mb->msg = temp;
 	
 	((*mb)->size)++;
 	if ((*mb)->size == MAX_MB_SIZE) {
@@ -302,11 +285,6 @@ void add_message(mailbox** mb, message** message) {
 	else if ((*mb)->size == 1) { //previously empty
 		wake_up(&((*mb)->wait_empty));
 	}
-	printk("added message to mailbox at address %p, message address %p, temp = %p, mseeage = %s", *mb, (*message), *temp, (char*)(*message)->content);
-	//kmem_cache_free(mailCache, temp);
-	//wake_up_locked(&(*mb)->wqh);
-	//spin_unlock(&(*mb)->wqh.lock);
-	//spin_unlock(lock);
 }
 
 /**
@@ -314,43 +292,29 @@ void add_message(mailbox** mb, message** message) {
  */
 void rm_message(mailbox** mb) {
 	temp2 = (*mb)->msg;
-	printk("*temp2 is %p", temp2);
-	if (temp2 == NULL)
-		return;
-	//acquire spin lock
-	//spin_lock(&(*mb)->wqh.lock);
-	//spin_lock(lock);
-	printk("rm msg: *temp2 not NULL");
+
+	if (temp2 == NULL) return;
+
 	if ((*mb)->msg->next == NULL) {
 		(*mb)->msg = NULL;
 		printk("cleared");
 	}
-	else {
-		(*mb)->msg = (*mb)->msg->next;
-		printk("head = %p", (*mb)->msg);
-		printk("its content is %s", (char*)(*mb)->msg->content);
-	}
-	printk("about to free *temp");
+
+	else (*mb)->msg = (*mb)->msg->next;
+
 	if (temp2 != NULL)
 		kmem_cache_free(mailCache, temp2);
-	printk("freed *temp2");
+
 	((*mb)->size) --;
+
 	if ((*mb)->full) {
 		(*mb)->full = FALSE;
 		wake_up(&((*mb)->wait_full));
 	}
-	printk("rm over, mb size = %d", (*mb)->size);
-	//kmem_cache_free(mailCache, temp2);
-	//wake_up_locked(&(*mb)->wqh);
-	//spin_unlock(&(*mb)->wqh.lock);
-	//spin_unlock(lock);
 }
 
 message* get_msg(mailbox** mb){
-	printk("got message, msg address = %p", (*mb)->msg);
-	printk("its content = %s", (char*)(*mb)->msg->content);
 	return (*mb)->msg;
-	//rm_message(mb);
 }
 		
 
@@ -358,10 +322,7 @@ message* get_msg(mailbox** mb){
  * send message to given destination
  */
 asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
-	//get pid of sender
 	pid_t my_pid = current->pid;
-	
-	//spin_lock(lock);
 	
 	void* msg = new_msg();
 	message* this_mail;
@@ -369,7 +330,6 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	signal* dest_signal;
 	struct task_struct* dest_ts;
 	int existence;
-	printk(KERN_INFO "Reach4");
 
 	if ((len > MAX_MSG_SIZE) || (len < 0))
 		return MSG_LENGTH_ERROR;
@@ -385,7 +345,6 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	//state not 0 or kernel task, invalid dest
 	existence = dest_ts->state;
 	if ((existence != 0) || (dest_ts->mm == NULL)) return MAILBOX_INVALID;
-	printk(KERN_INFO "Reach3");
 	
 	//get destination mailbox
 	dest_signal = get_signal(dest);
@@ -396,29 +355,24 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
 	dest_mailbox = get_mailbox(dest);
 	if (dest_mailbox == NULL) {
 		dest_mailbox = create_mailbox(dest);
-		if (dest_mailbox == NULL) return 98765;
+		if (dest_mailbox == NULL) return MAILBOX_ERROR;
 	}
 	
 	wake_up(&(dest_signal->wait_null));
-	printk(KERN_INFO "mb->stop = %d", dest_mailbox->stop);
+
 	if ((block == TRUE) && (dest_mailbox->full == TRUE)){
 		//wait until not full and send message
 	}
 	else if (block == FALSE && (dest_mailbox->full == TRUE))
 		return MAILBOX_FULL;	if (dest_mailbox->stop)
 		return MAILBOX_STOPPED;
-	//any other error return MAILBOX_ERROR
 		
-	printk(KERN_INFO "Reach1");
 	this_mail = create_message(my_pid, len, msg);
-	printk(KERN_INFO "Reach2");
-	printk(KERN_INFO "pid in send = %d", dest);
 
 	spin_lock(&(dest_mailbox->lock));
 	add_message(&dest_mailbox, &this_mail);
 	spin_unlock(&(dest_mailbox->lock));
 	
-	//spin_unlock(lock);
 	//successfully sent
 	return 0;
 }
@@ -427,10 +381,6 @@ asmlinkage long sys_SendMsg(pid_t dest, void *a_msg, int len, bool block){
  * receive message from given sender
  */
 asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
-
-	//spin_lock(lock);
-	//bool a_block;
-	//if (copy_from_user(&a_block, &block, sizeof(bool))) return MSG_ARG_ERROR;
 	pid_t my_pid = current->pid;
 	mailbox* mb = NULL;
 	signal* signal = NULL;
@@ -438,9 +388,7 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	pid_t *a_sender;
 	void *a_msg;
 	int *a_len;
-	//while ((block == BLOCK) && (mb == NULL));
-	printk(KERN_INFO "pid before get = %d", my_pid);
-	
+
 	signal = get_signal(my_pid);
 	if (signal == NULL) {
 		signal = create_signal(my_pid, TRUE);
@@ -448,15 +396,7 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	}
 	
 	mb = get_mailbox(my_pid);
-
-	//if ((block == BLOCK) && (mb == NULL)){
-	//	wait_event(wait_null, mb != NULL);
-	//}
-
-	if (mb == NULL) return 12345;
 	
-	printk("mailbox size = %d, mailbox address = %p", mb->size, mb);
-	printk(KERN_INFO "mb->stop = %d", mb->stop);
 	if ((mb->stop) && (mb->size == 0))
 		return MAILBOX_STOPPED;
 	if ((block == NO_BLOCK) && (mb->size == 0))
@@ -470,31 +410,26 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
 	this_mail = get_msg(&mb);
 	spin_unlock(&(mb->lock));
 
-	if (this_mail == NULL) return 1155665;
+	if (this_mail == NULL) return MAILBOX_ERROR;;
 
 	a_sender = &(this_mail->sender);
 	a_msg = this_mail->content;
 	a_len = &(this_mail->len);
-	printk("a_sender = %d, a_msg = %p, a_len = %d, thismail= %p", *a_sender, a_msg, *a_len, this_mail);
 
 	if (((*a_len) > MAX_MSG_SIZE) || ((*a_len) < 0))
 		return MSG_LENGTH_ERROR;
 
-	printk("got here yooooooooooooooooo");
 	if ((copy_to_user(sender, a_sender, sizeof(pid_t))))
-		return 2000;
+		return MSG_ARG_ERROR;
 	if ((copy_to_user(msg, a_msg, *a_len)))
-		return 3000;
+		return MSG_ARG_ERROR;
 	if ((copy_to_user(len, a_len, sizeof(int))))
 		 return MSG_ARG_ERROR;
-	//any other error return MAILBOX_ERROR
-	printk("copy succeeded");
+
 	spin_lock(&(mb->lock));
 	rm_message(&mb);
 	spin_unlock(&(mb->lock));
-	printk("read to return");
 
-	//spin_lock(lock);
 	//successful
 	return 0;
 }
@@ -505,13 +440,10 @@ asmlinkage long sys_RcvMsg(pid_t *sender, void *msg, int *len, bool block){
  * */
 asmlinkage long sys_ManageMailbox(bool stop, int *count){
 	pid_t my_pid = current->pid;
-	printk(KERN_INFO "Starting Manage Mailbox");
 	
 	mailbox* mb;
 	int a_count;
-	//if (copy_from_user(&stop, &a_stop, sizeof(bool)))
-		//return MSG_ARG_ERROR;
-		
+
 	mb = get_mailbox(my_pid);
 	spin_lock(&(mb->lock));
 	if (stop) {
@@ -531,11 +463,8 @@ asmlinkage long sys_mb_exit(int error_code){
 	pid_t mypid = current->pid;
 	mailbox *mb = get_mailbox(mypid);
 	if (mb != NULL){
-	//here is some comment
 		free_mail(mb->msg);
-		//here is some comment
 		if (mb != NULL)
-			//here is some comment
 			kmem_cache_free(mbCache, mb);
 	}
 	(*ref_sys_exit)(error_code);
@@ -546,11 +475,8 @@ asmlinkage long sys_mb_exit_group(int error_code){
 	pid_t mypid = current->pid;
 	mailbox *mb = get_mailbox(mypid);
 	if (mb != NULL){
-		//here is some comment
 		free_mail(mb->msg);
-		//here is some comment
 		if (mb != NULL)
-			//here is some comment
 			kmem_cache_free(mbCache, mb);
 	}
 	(*ref_sys_exit_group)(error_code);
