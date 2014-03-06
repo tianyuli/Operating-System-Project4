@@ -1,0 +1,9 @@
+//@author Xi Wen(xwen) && Tianyu Li(tli) && Xia Li(xli2)
+
+tli@ubuntu:~/Documents/Operating-System-Project4/Test$ ./test1
+Sending Message to myself.
+Message received.
+Message: This is a test, sender = 7456, len = 15, mypid = 7456 return = 0
+---------------------------RESULT-----------------------------------------------
+TEST PASSED!
+

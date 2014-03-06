@@ -1,0 +1,64 @@
+//@author Xi Wen(xwen) && Tianyu Li(tli) && Xia Li(xli2)
+
+tli@ubuntu:~/Documents/Operating-System-Project4/Test$ ./test3
+
+
+###TEST1###
+Sending Message to pid = -3, expect MAILBOX_INVALID (1004)
+Send failed: error = 1004
+
+
+###TEST2###
+Sending message to my child (which does not exist) expect MAILBOX_INVALID (1004)
+Send failed: error = 1004
+
+
+###TEST3###
+Sending message to kernel task (pid == 1) expect MAILBOX_INVALID (1004)
+Send failed: error = 1004
+
+
+###TEST4###
+Try to receive message from a empty mailbox, expect MAILBOX_EMPTY (1002)
+Sending Message to myself.
+Message received.
+Message: This is a test, sender = 7507, len = 15, mypid = 7507 return = 0
+Now try receive message again, should get error MAILBOX_EMPTY (1002)
+Receive failed for the second time! error = 1002
+
+
+###TEST5###
+Try sending a null message to myself
+Expect error MSG_ARG_ERROR (1006)
+Send failed: error = 1006, mypid = 7507
+
+
+###TEST6###
+Try receiving message from a mailbox that has been stopped, expect error MAILBOX_STOPPED (1003)
+Sending Message to myself.
+Mailbox stopped.
+There are 1 messages in the mailboxTry recieve message
+Should recieve message from non-empty stopped mailbox
+Message received.
+Message: This is a test, sender = 7507, len = 15, mypid = 7507 return = 0
+Try recieve message again
+Should not recieve message from empty stopped mailbox
+Receive failed! error = 1003
+
+
+###TEST7###
+Try sending message to a mailbox that has been stopped, expect error MAILBOX_STOPPED (1003)
+Now try send message to myself again, my mailbox is stopped so should get error
+Send failed: error = 1003, mypid = 7507
+
+
+###TEST8###
+Try sending a message to myself with negative length, expect error MSG_LENGTH_ERROR (1005)
+Send failed: error = 1005, mypid = 7507
+
+
+###TEST9###
+Try sending a message to myself with length greater than max, expect error MSG_LENGTH_ERROR (1005)
+Send failed: error = 1005, mypid = 7507
+9/9 tests passed
+
