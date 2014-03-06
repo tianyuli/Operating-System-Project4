@@ -22,7 +22,7 @@ int main(){
     ret = RcvMsg(&sender,msg,&len,block);
     printf("Message received.\n");
     printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, ret);
-	printf("---------------------------RESULT-----------------------------------------------\n")
+	printf("---------------------------RESULT-----------------------------------------------\n");
 	if ((sender == mypid) && (strcmp((char*)msg, mesg) == 0) && (len == 15)) 
 		printf("TEST PASSED!\n");
 	else printf("TEST FAILED!\n");

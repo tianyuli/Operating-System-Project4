@@ -3,6 +3,7 @@
 *	originally submitted by Cliff Lindsay
 * Modified for CS-3013, C-term 2012
 *
+* @edit Xi Wen(xwen) && Tianyu Li(tli) && Xia Li(xli2)
 */
 
 #ifndef __MAILBOX__

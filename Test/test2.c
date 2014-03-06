@@ -1,3 +1,5 @@
+//@author Xi Wen(xwen) && Tianyu Li(tli) && Xia Li(xli2)
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "mailbox.h"
