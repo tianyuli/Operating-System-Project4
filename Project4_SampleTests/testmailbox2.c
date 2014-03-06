@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define CHILD_NUM 50
+#define CHILD_NUM 5
 
 int main() {
   int childCounter;

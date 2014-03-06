@@ -112,12 +112,12 @@ int main (){
 		count--;
 	}
 
-	/*******************************test7************************************
+	/*******************************test7************************************/
 	printf("###TEST7###\n");
 	printf("Try sending a message to myself with negative length, expect error MSG_LENGTH_ERROR (1005)\n");
 	ret = SendMsg(mypid, mesg, -3, false);
 	if (ret) {
-		printf("Send failed: error = %d, mypid = %d", ret, mypid);
+		printf("Send failed: error = %d, mypid = %d\n", ret, mypid);
 		if (ret == MSG_LENGTH_ERROR) count++;
 	}
 	else {
@@ -126,12 +126,12 @@ int main (){
 		count--;
 	}
 
-	/*******************************test8************************************
+	/*******************************test8************************************/
 	printf("###TEST8###\n");
 	printf("Try sending a message to myself with length greater than max, expect error MSG_LENGTH_ERROR (1005)\n");
 	ret = SendMsg(mypid, mesg, 200, false);
 	if (ret) {
-		printf("Send failed: error = %d, mypid = %d", ret, mypid);
+		printf("Send failed: error = %d, mypid = %d\n", ret, mypid);
 		if (ret == MSG_LENGTH_ERROR) count++;
 	}
 	else {
@@ -170,6 +170,7 @@ int main (){
     printf("Message received.\n");
     printf("Message: %s, sender = %d, len = %d, mypid = %d return = %d\n", (char *) msg, sender, len, mypid, ret);
 	*/
+	printf("%d/8 tests passed\n");
 	return 0;
 }
 
